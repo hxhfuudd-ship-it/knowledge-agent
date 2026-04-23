@@ -1,0 +1,28 @@
+# Core
+anthropic>=0.42.0
+python-dotenv>=1.0.0
+pyyaml>=6.0
+
+# RAG - Embedding
+sentence-transformers>=3.0.0
+rank-bm25>=0.2.2
+
+# RAG - 文档解析
+pypdf2>=3.0.0
+
+# MCP
+mcp>=1.0.0
+
+# Frontend
+streamlit>=1.38.0
+
+# Data & Visualization
+pandas>=2.2.0
+matplotlib>=3.9.0
+plotly>=5.24.0
+
+# Fine-tuning (optional, install when needed)
+# transformers>=4.44.0
+# peft>=0.12.0
+# torch>=2.4.0
+# datasets>=3.0.0

@@ -1,0 +1,23 @@
+llm:
+  model: claude-sonnet-4-20250514
+  max_tokens: 4096
+  temperature: 0
+
+database:
+  path: data/sample.db
+
+rag:
+  chunk_size: 512
+  chunk_overlap: 50
+  collection_name: knowledge_base
+  top_k: 5
+  embedding_model: chinese  # english | multilingual | chinese 或完整模型名
+
+memory:
+  short_term_max_messages: 20
+  long_term_collection: long_term_memory
+
+agent:
+  max_iterations: 10
+  strategy: react  # react | plan_and_execute
+  skill_match: hybrid  # keyword | embedding | hybrid

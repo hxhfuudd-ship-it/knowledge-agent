@@ -1,0 +1,78 @@
+test_cases:
+  # SQL 查询类
+  - name: "部门人数查询"
+    query: "各部门有多少员工？"
+    category: sql
+    expected_tools: ["sql_query"]
+    expected_keywords: ["技术部", "销售部"]
+
+  - name: "平均薪资查询"
+    query: "各部门的平均薪资是多少？"
+    category: sql
+    expected_tools: ["sql_query"]
+    expected_keywords: []
+
+  - name: "销售额查询"
+    query: "上个月的总销售额是多少？"
+    category: sql
+    expected_tools: ["sql_query"]
+    expected_keywords: []
+
+  - name: "热销产品查询"
+    query: "卖得最好的前5个产品是什么？"
+    category: sql
+    expected_tools: ["sql_query"]
+    expected_keywords: []
+
+  - name: "客户分布查询"
+    query: "VIP客户主要分布在哪些城市？"
+    category: sql
+    expected_tools: ["sql_query"]
+    expected_keywords: []
+
+  # 计算类
+  - name: "数学计算"
+    query: "帮我算一下 12345 * 67 + 890"
+    category: calculation
+    expected_tools: ["calculator"]
+    expected_keywords: []
+
+  # RAG 检索类
+  - name: "业务规则检索"
+    query: "复购率是怎么计算的？"
+    category: rag
+    expected_tools: ["rag_search"]
+    expected_keywords: ["复购率"]
+
+  - name: "数据字典检索"
+    query: "订单表有哪些字段？"
+    category: rag
+    expected_tools: ["rag_search"]
+    expected_keywords: []
+
+  # 综合分析类
+  - name: "综合分析"
+    query: "分析一下各产品类别的销售情况，哪个类别卖得最好？"
+    category: analysis
+    expected_tools: ["sql_query"]
+    expected_keywords: []
+
+  - name: "退单率分析"
+    query: "目前的退单率是多少？正常吗？"
+    category: analysis
+    expected_tools: ["sql_query"]
+    expected_keywords: []
+
+  # Python 执行类
+  - name: "Python 数据处理"
+    query: "用 Python 帮我算一下 [10, 20, 30, 40, 50] 的平均值和标准差"
+    category: python
+    expected_tools: ["python_exec"]
+    expected_keywords: []
+
+  # 图表类
+  - name: "图表生成"
+    query: "帮我画个柱状图展示各部门人数"
+    category: chart
+    expected_tools: ["sql_query", "create_chart"]
+    expected_keywords: []
