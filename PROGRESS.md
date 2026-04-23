@@ -242,3 +242,7 @@
    - config.py 新增 AGENT_LLM_PROVIDER / AGENT_LLM_BASE_URL 环境变量覆盖
    - .env.example 增加 DeepSeek 配置示例
    - requirements.txt 增加 openai>=1.0.0
+5. Tavily 搜索接入 — search_tool 从演示模式升级为真实搜索
+   - 配置 TAVILY_API_KEY 后自动启用 Tavily API
+   - 未配置时回退到演示模式并提示获取方式
+   - requirements.txt 增加 tavily-python

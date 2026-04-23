@@ -11,6 +11,9 @@ rank-bm25>=0.2.2
 # RAG - 文档解析
 pypdf2>=3.0.0
 
+# Search
+tavily-python>=0.3.0
+
 # MCP
 mcp>=1.0.0
 
