@@ -1,13 +1,10 @@
 llm:
-  provider: anthropic  # anthropic | openai
-  model: claude-sonnet-4-20250514
+  provider: openai
+  model: deepseek-chat
   max_tokens: 4096
   temperature: 0
-  # OpenAI 兼容 provider 配置（DeepSeek / Kimi 等）：
-  # provider: openai
-  # model: deepseek-chat
-  # base_url: https://api.deepseek.com/v1
-  # api_key_env: DEEPSEEK_API_KEY
+  base_url: https://api.deepseek.com/v1
+  api_key_env: DEEPSEEK_API_KEY
 
 database:
   path: data/sample.db

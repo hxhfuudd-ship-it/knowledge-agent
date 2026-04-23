@@ -119,3 +119,22 @@ class OpenAIAdapter(BaseAdapter):
         if not system:
             return messages
         return [{"role": "system", "content": system}] + messages
+
+    def _normalize(self, response) -> LLMResponse:
+        choice = response.choices[0]
+        msg = choice.message
+        tool_calls = []
+        if msg.tool_calls:
+            for tc in msg.tool_calls:
+                try:
+                    args = json.loads(tc.function.arguments) if tc.function.arguments else {}
+                except json.JSONDecodeError:
+                    args = {}
+                tool_calls.append(ToolCall(id=tc.id, name=tc.function.name, input=args))
+        stop = STOP_REASON_MAP.get(choice.finish_reason, choice.finish_reason or "end_turn")
+        return LLMResponse(
+            text=msg.content or "",
+            tool_calls=tool_calls,
+            stop_reason=stop,
+            raw=response,
+        )

@@ -246,3 +246,8 @@
    - 配置 TAVILY_API_KEY 后自动启用 Tavily API
    - 未配置时回退到演示模式并提示获取方式
    - requirements.txt 增加 tavily-python
+6. DeepSeek 端到端验证通过：
+   - SQL 查询（rag_search + sql_query + create_chart 联动）
+   - 数学计算（calculator 工具调用）
+   - RAG 检索（rag_search + read_file，准确返回业务规则）
+   - 修复 OpenAIAdapter 缺失 _normalize 方法
