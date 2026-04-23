@@ -1,5 +1,6 @@
 """Python 代码执行工具：在受限沙箱中执行 Python 代码片段"""
 import io
+import re
 import contextlib
 import logging
 from .base import Tool
@@ -34,11 +35,11 @@ class PythonTool(Tool):
 
     def execute(self, code: str) -> str:
         for mod in FORBIDDEN_MODULES:
-            if "import %s" % mod in code or "from %s" % mod in code:
+            if re.search(r'\b(?:import|from)\s+%s\b' % re.escape(mod), code):
                 return "错误：禁止导入模块 %s" % mod
 
         for builtin in FORBIDDEN_BUILTINS:
-            if builtin in code:
+            if re.search(r'\b%s\b' % re.escape(builtin), code):
                 return "错误：禁止使用 %s" % builtin
 
         safe_globals = {"__builtins__": {

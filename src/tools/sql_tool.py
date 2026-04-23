@@ -9,16 +9,8 @@ _project_root = Path(__file__).parent.parent.parent
 
 class SQLTool(Tool):
     name = "sql_query"
-    description = (
-        "对 SQLite 数据库执行 SQL 查询。数据库包含以下表：\n"
-        "- departments（部门）: id, name, manager, budget\n"
-        "- employees（员工）: id, name, department_id, position, salary, hire_date\n"
-        "- products（产品）: id, name, category, price, stock\n"
-        "- customers（客户）: id, name, email, city, level\n"
-        "- orders（订单）: id, customer_id, order_date, total_amount, status\n"
-        "- order_items（订单明细）: id, order_id, product_id, quantity, unit_price\n"
-        "只允许 SELECT 查询，禁止修改数据。"
-    )
+    _description_base = "对 SQLite 数据库执行 SQL 查询。只允许 SELECT 查询，禁止修改数据。"
+    description = _description_base
     parameters = {
         "type": "object",
         "properties": {
@@ -31,6 +23,33 @@ class SQLTool(Tool):
     }
 
     FORBIDDEN_KEYWORDS = {"DROP", "DELETE", "UPDATE", "INSERT", "ALTER", "CREATE", "ATTACH", "DETACH"}
+
+    @staticmethod
+    def _get_table_info() -> str:
+        db_path = _project_root / config.get("database.path", "data/sample.db")
+        try:
+            with sqlite3.connect(str(db_path)) as conn:
+                cursor = conn.execute("SELECT name FROM sqlite_master WHERE type='table' ORDER BY name")
+                tables = [row[0] for row in cursor.fetchall()]
+                if not tables:
+                    return "数据库中没有表"
+                lines = []
+                for t in tables:
+                    cols = conn.execute("PRAGMA table_info([%s])" % t).fetchall()
+                    col_names = ", ".join(c[1] for c in cols)
+                    lines.append("- %s: %s" % (t, col_names))
+                return "\n".join(lines)
+        except sqlite3.Error:
+            return "（无法读取表结构）"
+
+    def to_claude_tool(self) -> dict:
+        table_info = self._get_table_info()
+        dynamic_desc = "%s\n数据库包含以下表：\n%s" % (self._description_base, table_info)
+        return {
+            "name": self.name,
+            "description": dynamic_desc,
+            "input_schema": self.parameters,
+        }
 
     def execute(self, sql: str) -> str:
         sql_stripped = sql.strip()

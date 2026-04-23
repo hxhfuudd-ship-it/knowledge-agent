@@ -251,3 +251,29 @@
    - 数学计算（calculator 工具调用）
    - RAG 检索（rag_search + read_file，准确返回业务规则）
    - 修复 OpenAIAdapter 缺失 _normalize 方法
+
+### Day 5 — 数据导入 + 多项目管理
+
+1. python_tool 安全检查修复 — import/builtin 检测从字符串包含改为正则匹配（\b 词边界），防止空格绕过
+2. CSV 导入工具（src/tools/csv_import_tool.py）：
+   - pandas 读取 CSV 写入 SQLite
+   - 表名正则校验 + 文件路径遍历防护
+   - 支持 replace/append 模式
+   - 返回导入摘要（行数、列名、数据类型、预览）
+3. sql_tool 动态表结构感知：
+   - 新增 _get_table_info() 读取 sqlite_master + PRAGMA table_info
+   - description 从硬编码改为动态生成，覆写 to_claude_tool()
+   - 导入新表后 Agent 自动感知
+4. 命令行批量导入脚本（import_csv.py）：
+   - 支持单文件和文件夹批量导入
+   - --project 参数指定目标项目数据库
+   - --list 列出所有项目
+5. 多项目数据库管理：
+   - 每个项目独立 SQLite 文件（data/databases/*.db）
+   - config.py 新增 set() 函数，运行时动态切换数据库
+   - settings.yaml 默认路径改为 data/databases/default.db
+6. Streamlit 前端升级：
+   - 项目切换下拉框 + 新建/删除项目
+   - CSV 多文件上传批量导入
+   - 数据库表列表动态展示（实时读取当前项目）
+   - 示例问题改为两列网格布局 + 图标

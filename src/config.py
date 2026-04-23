@@ -42,6 +42,16 @@ def get(key: str, default: Any = None) -> Any:
     return val
 
 
+def set(key: str, value: Any):
+    """运行时修改配置（仅内存，不写文件）"""
+    config = load_config()
+    keys = key.split(".")
+    target = config
+    for k in keys[:-1]:
+        target = target.setdefault(k, {})
+    target[keys[-1]] = value
+
+
 def _apply_env_overrides(config: dict):
     """环境变量覆盖：AGENT_LLM_MODEL -> config['llm']['model']"""
     env_map = {

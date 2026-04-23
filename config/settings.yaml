@@ -10,7 +10,7 @@ llm:
   # api_key_env: DEEPSEEK_API_KEY
 
 database:
-  path: data/sample.db
+  path: data/databases/default.db
 
 rag:
   chunk_size: 512

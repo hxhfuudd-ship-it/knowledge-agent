@@ -1,17 +1,45 @@
 """Streamlit 主界面 - 展示所有模块"""
 import json
+import sqlite3
+from pathlib import Path
 import streamlit as st
 from src.agent.core import Agent
+from src import config
 
 st.set_page_config(page_title="知识库数据 Agent", page_icon="🤖", layout="wide")
 st.title("🤖 知识库数据 Agent")
 st.caption("用自然语言查询和分析数据 | Tool Use · RAG · Skills · MCP · Memory")
+
+PROJECT_ROOT = Path(__file__).parent
+DATABASES_DIR = PROJECT_ROOT / "data" / "databases"
+DATABASES_DIR.mkdir(parents=True, exist_ok=True)
+
+
+def get_projects():
+    return sorted([f.stem for f in DATABASES_DIR.glob("*.db")])
+
+
+def get_db_tables():
+    db_path = PROJECT_ROOT / config.get("database.path", "data/databases/default.db")
+    try:
+        with sqlite3.connect(str(db_path)) as conn:
+            tables = conn.execute("SELECT name FROM sqlite_master WHERE type='table' ORDER BY name").fetchall()
+            result = {}
+            for (t,) in tables:
+                cols = conn.execute("PRAGMA table_info([%s])" % t).fetchall()
+                result[t] = [c[1] for c in cols]
+            return result
+    except sqlite3.Error:
+        return {}
+
 
 # 初始化
 if "agent" not in st.session_state:
     st.session_state.agent = Agent()
 if "messages" not in st.session_state:
     st.session_state.messages = []
+if "current_project" not in st.session_state:
+    st.session_state.current_project = "default"
 
 agent = st.session_state.agent
 
@@ -20,26 +48,32 @@ with st.sidebar:
     tab1, tab2, tab3 = st.tabs(["💬 对话", "🧠 记忆", "📊 信息"])
 
     with tab1:
-        if st.button("清空对话"):
+        if st.button("🗑️ 清空对话", use_container_width=True):
             st.session_state.messages = []
             agent.reset()
             st.rerun()
 
-        st.subheader("示例问题")
+        st.divider()
+        st.caption("💡 试试这些问题")
         examples = [
-            "各部门有多少员工？",
-            "上个月销售额是多少？",
-            "哪个产品卖得最好？",
-            "VIP客户主要分布在哪些城市？",
-            "复购率是怎么计算的？",
-            "生成一份销售月报",
-            "帮我画个各部门人数的柱状图",
-            "公司整体业绩怎么样？",
+            ("📊", "各部门有多少员工？"),
+            ("💰", "上个月销售额是多少？"),
+            ("🏆", "哪个产品卖得最好？"),
+            ("🏙️", "VIP客户主要分布在哪些城市？"),
+            ("🔄", "复购率是怎么计算的？"),
+            ("📝", "生成一份销售月报"),
+            ("📈", "帮我画个各部门人数的柱状图"),
+            ("🎯", "公司整体业绩怎么样？"),
         ]
-        for ex in examples:
-            if st.button(ex, key=ex):
-                st.session_state.pending_input = ex
-                st.rerun()
+        for i in range(0, len(examples), 2):
+            cols = st.columns(2)
+            for j, col in enumerate(cols):
+                if i + j < len(examples):
+                    icon, text = examples[i + j]
+                    with col:
+                        if st.button("%s %s" % (icon, text), key=text, use_container_width=True):
+                            st.session_state.pending_input = text
+                            st.rerun()
 
     with tab2:
         st.subheader("记忆系统")
@@ -65,6 +99,71 @@ with st.sidebar:
                 st.caption(ep["summary"][:80])
 
     with tab3:
+        st.subheader("项目管理")
+        projects = get_projects()
+        if not projects:
+            projects = ["default"]
+
+        selected = st.selectbox("当前项目", projects,
+                                index=projects.index(st.session_state.current_project)
+                                if st.session_state.current_project in projects else 0)
+        if selected != st.session_state.current_project:
+            st.session_state.current_project = selected
+            config.set("database.path", "data/databases/%s.db" % selected)
+            st.rerun()
+
+        col1, col2 = st.columns(2)
+        with col1:
+            new_name = st.text_input("新建项目", placeholder="项目名")
+            if st.button("创建") and new_name:
+                new_name = new_name.strip().replace(" ", "_").replace("-", "_")
+                new_db = DATABASES_DIR / ("%s.db" % new_name)
+                if new_db.exists():
+                    st.warning("项目已存在")
+                else:
+                    sqlite3.connect(str(new_db)).close()
+                    st.session_state.current_project = new_name
+                    config.set("database.path", "data/databases/%s.db" % new_name)
+                    st.success("已创建: %s" % new_name)
+                    st.rerun()
+        with col2:
+            if st.button("删除当前项目") and selected != "default":
+                db_file = DATABASES_DIR / ("%s.db" % selected)
+                if db_file.exists():
+                    db_file.unlink()
+                st.session_state.current_project = "default"
+                config.set("database.path", "data/databases/default.db")
+                st.rerun()
+            elif selected == "default":
+                st.caption("default 不可删除")
+
+        st.divider()
+        st.subheader("CSV 导入")
+        uploaded_files = st.file_uploader("上传 CSV 文件（可多选）", type=["csv"], accept_multiple_files=True)
+        if uploaded_files:
+            import_mode = st.selectbox("导入模式", ["replace（覆盖）", "append（追加）"])
+            mode = "replace" if "replace" in import_mode else "append"
+            if st.button("导入全部（%d 个文件）" % len(uploaded_files)):
+                import pandas as pd
+                db_path = PROJECT_ROOT / config.get("database.path", "data/databases/default.db")
+                success_count = 0
+                for uf in uploaded_files:
+                    table_name = uf.name.replace(".csv", "").replace(" ", "_").replace("-", "_")
+                    save_path = PROJECT_ROOT / "data" / uf.name
+                    save_path.write_bytes(uf.getvalue())
+                    try:
+                        df = pd.read_csv(str(save_path))
+                        with sqlite3.connect(str(db_path)) as conn:
+                            df.to_sql(table_name, conn, if_exists=mode, index=False)
+                        st.success("%s → 表 %s（%d 行）" % (uf.name, table_name, len(df)))
+                        success_count += 1
+                    except Exception as e:
+                        st.error("%s 导入失败: %s" % (uf.name, e))
+                if success_count:
+                    st.info("共导入 %d 个表" % success_count)
+                    st.rerun()
+
+        st.divider()
         st.subheader("已注册工具")
         for t in agent.registry.list_tools():
             st.code(t.name, language=None)
@@ -77,15 +176,13 @@ with st.sidebar:
 
         st.divider()
         st.subheader("数据库表")
-        st.code(
-            "departments - 部门\n"
-            "employees - 员工\n"
-            "products - 产品\n"
-            "customers - 客户\n"
-            "orders - 订单\n"
-            "order_items - 订单明细",
-            language=None,
-        )
+        tables = get_db_tables()
+        if tables:
+            for tname, cols in tables.items():
+                st.markdown(f"**{tname}**")
+                st.caption(", ".join(cols))
+        else:
+            st.info("数据库中没有表")
 
 # 渲染历史消息
 for msg in st.session_state.messages:
