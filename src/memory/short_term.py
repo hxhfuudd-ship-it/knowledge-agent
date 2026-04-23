@@ -21,7 +21,6 @@ class ShortTermMemory:
             self._compress_and_trim()
 
     def _compress_and_trim(self):
-        """压缩早期对话为摘要，保留最近的消息"""
         keep = self.max_messages // 2
         old_messages = self.messages[:-keep]
         self.messages = self.messages[-keep:]
@@ -40,21 +39,17 @@ class ShortTermMemory:
         if self._compressor is not None:
             return self._compressor
         try:
-            import anthropic
-            from .. import config
-            client = anthropic.Anthropic()
-            model = config.get("llm.model", "claude-sonnet-4-20250514")
+            from ..llm import create_llm_client
+            llm = create_llm_client()
 
             def compress(text: str) -> str:
-                resp = client.messages.create(
-                    model=model,
-                    max_tokens=300,
+                resp = llm.chat(
                     messages=[{"role": "user", "content":
                         "请用 2-3 句话压缩以下对话的关键信息（保留数据发现、用户偏好、重要结论）：\n\n%s" % text
                     }],
+                    max_tokens=300,
                 )
-                parts = [b.text for b in resp.content if hasattr(b, "text")]
-                return "\n".join(parts)
+                return resp.text
 
             self._compressor = compress
             return compress
@@ -70,14 +65,12 @@ class ShortTermMemory:
         return deepcopy(self.messages)
 
     def get_context(self) -> Dict:
-        """返回完整上下文：摘要 + 当前消息"""
         return {
             "summary": self._summary,
             "messages": self.get_messages(),
         }
 
     def get_summary_context(self) -> str:
-        """将对话历史转为文本摘要（用于注入 prompt）"""
         parts = []
         if self._summary:
             parts.append("对话摘要：%s" % self._summary)

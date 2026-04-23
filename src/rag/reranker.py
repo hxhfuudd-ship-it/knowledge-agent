@@ -9,8 +9,14 @@ logger = logging.getLogger(__name__)
 class Reranker:
     """使用 LLM 对检索结果重排序"""
 
-    def __init__(self, model: str = None):
-        self.model = model or config.get("llm.model", "claude-sonnet-4-20250514")
+    def __init__(self):
+        self._llm = None
+
+    def _get_llm(self):
+        if self._llm is None:
+            from ..llm import create_llm_client
+            self._llm = create_llm_client()
+        return self._llm
 
     def rerank(self, query: str, documents: List[Tuple[str, float, dict]],
                top_k: int = 3) -> List[Tuple[str, float, dict]]:
@@ -18,8 +24,7 @@ class Reranker:
             return documents
 
         try:
-            import anthropic
-            client = anthropic.Anthropic()
+            llm = self._get_llm()
 
             doc_list = ""
             for i, (doc, _, _) in enumerate(documents):
@@ -33,12 +38,11 @@ class Reranker:
                 "格式为逗号分隔的数字。只返回数字，如：2,0,4"
             ) % (query, doc_list, top_k)
 
-            response = client.messages.create(
-                model=self.model,
-                max_tokens=100,
+            response = llm.chat(
                 messages=[{"role": "user", "content": prompt}],
+                max_tokens=100,
             )
-            text = "".join(b.text for b in response.content if hasattr(b, "text")).strip()
+            text = response.text.strip()
             indices = [int(x.strip()) for x in text.split(",") if x.strip().isdigit()]
 
             reranked = []

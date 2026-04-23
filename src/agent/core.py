@@ -1,6 +1,5 @@
 """Agent 核心：ReAct 循环 - 感知、思考、行动、观察"""
 import logging
-import anthropic
 from pathlib import Path
 from dotenv import load_dotenv
 
@@ -21,6 +20,7 @@ from ..memory.short_term import ShortTermMemory
 from ..memory.long_term import LongTermMemory
 from ..memory.episodic import EpisodicMemory
 from ..memory.working import WorkingMemory
+from ..llm import create_llm_client
 from .. import config
 
 logger = logging.getLogger(__name__)
@@ -51,8 +51,7 @@ BASE_SYSTEM_PROMPT = """你是一个数据分析助手，可以帮助用户查�
 
 class Agent:
     def __init__(self, model=None, max_iterations=None):
-        self.client = anthropic.Anthropic()
-        self.model = model or config.get("llm.model", "claude-sonnet-4-20250514")
+        self.llm = create_llm_client(model=model)
         self.max_iterations = max_iterations or config.get("agent.max_iterations", 10)
         self.registry = ToolRegistry()
         skill_strategy = config.get("agent.skill_match", "hybrid")
@@ -106,12 +105,10 @@ class Agent:
         return "\n".join(parts)
 
     def _call_llm(self, messages, system_prompt=None):
-        return self.client.messages.create(
-            model=self.model,
-            max_tokens=config.get("llm.max_tokens", 4096),
+        return self.llm.chat(
+            messages=messages,
             system=system_prompt or BASE_SYSTEM_PROMPT,
             tools=self.registry.to_claude_tools(),
-            messages=messages,
         )
 
     def _execute_tool(self, name, input_data):
@@ -142,23 +139,21 @@ class Agent:
                 response = self._call_llm(messages, system_prompt)
 
                 if response.stop_reason == "end_turn":
-                    text = self._extract_text(response)
-                    self._save_assistant_turn(text)
-                    self._record_episode(user_message, text)
-                    return self._build_result(text, matched_skill)
+                    self._save_assistant_turn(response.text)
+                    self._record_episode(user_message, response.text)
+                    return self._build_result(response.text, matched_skill)
 
                 if response.stop_reason == "tool_use":
-                    messages.append({"role": "assistant", "content": response.content})
+                    messages.append(self.llm.build_assistant_message(response))
                     tool_results = self._process_tool_calls(response)
-                    messages.append({"role": "user", "content": tool_results})
+                    messages.extend(self.llm.format_tool_results(tool_results))
                     continue
 
                 break
 
-            text = self._extract_text(response)
-            self._save_assistant_turn(text)
-            return self._build_result(text or "抱歉，处理过程过于复杂，请简化你的问题。", matched_skill)
-        except anthropic.APIError as e:
+            self._save_assistant_turn(response.text)
+            return self._build_result(response.text or "抱歉，处理过程过于复杂，请简化你的问题。", matched_skill)
+        except Exception as e:
             logger.error("API 调用失败: %s", e)
             error_msg = "API 调用失败，请检查网络和 API Key 配置。"
             self._save_assistant_turn(error_msg)
@@ -166,20 +161,15 @@ class Agent:
 
     def _process_tool_calls(self, response):
         tool_results = []
-        for block in response.content:
-            if block.type == "tool_use":
-                result = self._execute_tool(block.name, block.input)
-                self.tool_call_log.append({
-                    "tool": block.name,
-                    "input": block.input,
-                    "output": result,
-                })
-                self.working.add_step("调用 %s" % block.name, result[:200])
-                tool_results.append({
-                    "type": "tool_result",
-                    "tool_use_id": block.id,
-                    "content": result,
-                })
+        for tc in response.tool_calls:
+            result = self._execute_tool(tc.name, tc.input)
+            self.tool_call_log.append({
+                "tool": tc.name,
+                "input": tc.input,
+                "output": result,
+            })
+            self.working.add_step("调用 %s" % tc.name, result[:200])
+            tool_results.append(self.llm.format_tool_result(tc.id, result))
         return tool_results
 
     def _save_assistant_turn(self, text):
@@ -230,46 +220,41 @@ class Agent:
 
         try:
             for _ in range(self.max_iterations):
-                collected_text = ""
-                tool_blocks = []
+                response = None
 
-                with self.client.messages.stream(
-                    model=self.model,
-                    max_tokens=config.get("llm.max_tokens", 4096),
+                for event in self.llm.chat_stream(
+                    messages=messages,
                     system=system_prompt or BASE_SYSTEM_PROMPT,
                     tools=self.registry.to_claude_tools(),
-                    messages=messages,
-                ) as stream:
-                    for event in stream:
-                        if hasattr(event, "type"):
-                            if event.type == "content_block_delta":
-                                if hasattr(event.delta, "text"):
-                                    collected_text += event.delta.text
-                                    yield {"type": "token", "content": event.delta.text}
+                ):
+                    if event["type"] == "token":
+                        yield event
+                    elif event["type"] == "final":
+                        response = event["response"]
 
-                    response = stream.get_final_message()
+                if not response:
+                    break
 
                 if response.stop_reason == "end_turn":
-                    text = self._extract_text(response)
-                    self._save_assistant_turn(text)
-                    self._record_episode(user_message, text)
-                    yield {"type": "done", "result": self._build_result(text, matched_skill)}
+                    self._save_assistant_turn(response.text)
+                    self._record_episode(user_message, response.text)
+                    yield {"type": "done", "result": self._build_result(response.text, matched_skill)}
                     return
 
                 if response.stop_reason == "tool_use":
-                    messages.append({"role": "assistant", "content": response.content})
+                    messages.append(self.llm.build_assistant_message(response))
                     tool_results = self._process_tool_calls(response)
                     for tc in self.tool_call_log[-len(tool_results):]:
                         yield {"type": "tool_call", "tool": tc["tool"], "input": tc["input"], "output": tc["output"]}
-                    messages.append({"role": "user", "content": tool_results})
+                    messages.extend(self.llm.format_tool_results(tool_results))
                     continue
 
                 break
 
-            text = self._extract_text(response)
-            self._save_assistant_turn(text)
-            yield {"type": "done", "result": self._build_result(text or "抱歉，处理过程过于复杂，请简化你的问题。", matched_skill)}
-        except anthropic.APIError as e:
+            if response:
+                self._save_assistant_turn(response.text)
+                yield {"type": "done", "result": self._build_result(response.text or "抱歉，处理过程过于复杂，请简化你的问题。", matched_skill)}
+        except Exception as e:
             logger.error("API 调用失败: %s", e)
             error_msg = "API 调用失败，请检查网络和 API Key 配置。"
             self._save_assistant_turn(error_msg)
@@ -279,8 +264,3 @@ class Agent:
         max_turns = config.get("memory.short_term_max_messages", 20)
         if len(self.conversation) > max_turns:
             self.conversation = self.conversation[-max_turns:]
-
-    @staticmethod
-    def _extract_text(response):
-        parts = [b.text for b in response.content if hasattr(b, "text")]
-        return "\n".join(parts)

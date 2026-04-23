@@ -1,9 +1,13 @@
 """多 Agent 编排器：将复杂任务分解并分配给专门的 Agent"""
-import anthropic
+import json
+import logging
 from typing import List, Dict, Any
 from pathlib import Path
 from dotenv import load_dotenv
+from ..llm import create_llm_client
 from .. import config
+
+logger = logging.getLogger(__name__)
 
 load_dotenv(Path(__file__).parent.parent.parent / ".env")
 
@@ -16,8 +20,7 @@ class SubAgent:
         self.role = role
         self.system_prompt = system_prompt
         self.tools = tools or []
-        self.client = anthropic.Anthropic()
-        self.model = config.get("llm.model", "claude-sonnet-4-20250514")
+        self.llm = create_llm_client()
 
     def run(self, task: str, context: str = "") -> str:
         prompt = task
@@ -25,26 +28,20 @@ class SubAgent:
             prompt = f"参考上下文：\n{context}\n\n任务：{task}"
 
         messages = [{"role": "user", "content": prompt}]
-        kwargs = dict(
-            model=self.model,
-            max_tokens=config.get("llm.max_tokens", 2048),
-            system=self.system_prompt,
+        response = self.llm.chat(
             messages=messages,
+            system=self.system_prompt,
+            tools=self.tools or None,
+            max_tokens=config.get("llm.max_tokens", 2048),
         )
-        if self.tools:
-            kwargs["tools"] = self.tools
-
-        response = self.client.messages.create(**kwargs)
-
-        return "".join(b.text for b in response.content if hasattr(b, "text"))
+        return response.text
 
 
 class Orchestrator:
     """编排器：分解任务 → 分配子 Agent → 聚合结果"""
 
     def __init__(self):
-        self.client = anthropic.Anthropic()
-        self.model = config.get("llm.model", "claude-sonnet-4-20250514")
+        self.llm = create_llm_client()
         self.agents: Dict[str, SubAgent] = {}
         self.execution_log: List[Dict] = []
         self._register_default_agents()
@@ -73,18 +70,15 @@ class Orchestrator:
         """执行复杂任务：分解 → 分配 → 执行 → 聚合"""
         self.execution_log = []
 
-        # 1. 任务分解
         plan = self._plan(task)
         self.execution_log.append({"phase": "planning", "result": plan})
 
-        # 2. 按计划执行子任务
         results = {}
         for step in plan.get("steps", []):
             agent_name = step.get("agent", "analyst")
             sub_task = step.get("task", "")
             depends_on = step.get("depends_on", [])
 
-            # 收集依赖结果作为上下文
             context_parts = [results[dep] for dep in depends_on if dep in results]
             context = "\n---\n".join(context_parts)
 
@@ -100,7 +94,6 @@ class Orchestrator:
                     "result": result[:500],
                 })
 
-        # 3. 聚合最终结果
         final = self._aggregate(task, results)
         self.execution_log.append({"phase": "aggregation", "result": final[:500]})
 
@@ -111,7 +104,6 @@ class Orchestrator:
         }
 
     def _plan(self, task: str) -> dict:
-        """用 LLM 分解任务"""
         prompt = f"""请将以下任务分解为子任务，分配给合适的 Agent。
 
 可用 Agent：
@@ -130,15 +122,12 @@ class Orchestrator:
 
 只返回 JSON，不要其他内容。"""
 
-        response = self.client.messages.create(
-            model=self.model,
-            max_tokens=1024,
+        response = self.llm.chat(
             messages=[{"role": "user", "content": prompt}],
+            max_tokens=1024,
         )
 
-        text = response.content[0].text.strip()
-        # 提取 JSON
-        import json
+        text = response.text.strip()
         try:
             if "```" in text:
                 text = text.split("```")[1]
@@ -151,7 +140,6 @@ class Orchestrator:
             ]}
 
     def _aggregate(self, original_task: str, results: Dict[str, str]) -> str:
-        """聚合子任务结果"""
         context = ""
         for step_id, result in results.items():
             context += f"\n### {step_id} 的结果：\n{result}\n"
@@ -166,10 +154,8 @@ class Orchestrator:
 - 结构清晰，逻辑连贯
 - 用中文回答"""
 
-        response = self.client.messages.create(
-            model=self.model,
-            max_tokens=config.get("llm.max_tokens", 2048),
+        response = self.llm.chat(
             messages=[{"role": "user", "content": prompt}],
+            max_tokens=2048,
         )
-
-        return response.content[0].text
+        return response.text

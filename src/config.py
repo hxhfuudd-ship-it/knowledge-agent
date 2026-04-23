@@ -45,8 +45,11 @@ def get(key: str, default: Any = None) -> Any:
 def _apply_env_overrides(config: dict):
     """环境变量覆盖：AGENT_LLM_MODEL -> config['llm']['model']"""
     env_map = {
+        "AGENT_LLM_PROVIDER": ("llm", "provider"),
         "AGENT_LLM_MODEL": ("llm", "model"),
         "AGENT_LLM_MAX_TOKENS": ("llm", "max_tokens"),
+        "AGENT_LLM_BASE_URL": ("llm", "base_url"),
+        "AGENT_LLM_API_KEY_ENV": ("llm", "api_key_env"),
         "AGENT_DB_PATH": ("database", "path"),
         "AGENT_RAG_CHUNK_SIZE": ("rag", "chunk_size"),
         "AGENT_RAG_TOP_K": ("rag", "top_k"),

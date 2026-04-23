@@ -218,3 +218,27 @@
 4. 创建 .gitignore — 忽略 __pycache__、.env、生成数据、模型文件等
 5. test_cases.yaml 补充新工具测试用例 — 增加 Python 执行和图表生成用例（共 12 个）
 6. rag/__init__.py 导出 get_embedder — 保持公开 API 完整
+
+### Day 4 — LLM 多模型抽象层
+
+1. 创建 src/llm/ 包 — Provider Adapter 模式
+   - models.py：标准化响应模型（LLMResponse, ToolCall）
+   - base_adapter.py：抽象适配器接口
+   - anthropic_adapter.py：Anthropic Claude 适配器
+   - openai_adapter.py：OpenAI 兼容适配器（DeepSeek / Kimi / OpenAI 等）
+   - client.py：LLMClient 门面 + create_llm_client() 工厂函数
+2. 迁移 4 个调用方：
+   - src/agent/core.py — ReAct 循环 + 流式输出，全部改用 LLMClient
+   - src/multi_agent/orchestrator.py — SubAgent 和 Orchestrator
+   - src/rag/reranker.py — LLM 重排序
+   - src/memory/short_term.py — 对话压缩
+3. 关键设计决策：
+   - stop_reason 统一映射（OpenAI "stop"→"end_turn", "tool_calls"→"tool_use"）
+   - 工具格式自动转换（Claude input_schema ↔ OpenAI parameters）
+   - 工具结果消息格式适配（Anthropic 打包 vs OpenAI 独立消息）
+   - 助手消息构建适配（build_assistant_message）
+4. 配置更新：
+   - settings.yaml 新增 provider / base_url / api_key_env 配置项
+   - config.py 新增 AGENT_LLM_PROVIDER / AGENT_LLM_BASE_URL 环境变量覆盖
+   - .env.example 增加 DeepSeek 配置示例
+   - requirements.txt 增加 openai>=1.0.0
