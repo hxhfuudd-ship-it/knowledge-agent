@@ -58,9 +58,21 @@ class AnthropicAdapter(BaseAdapter):
             ToolCall(id=b.id, name=b.name, input=b.input)
             for b in response.content if b.type == "tool_use"
         ]
+        usage = getattr(response, "usage", None)
+        usage_dict = {}
+        if usage:
+            input_tokens = getattr(usage, "input_tokens", 0) or 0
+            output_tokens = getattr(usage, "output_tokens", 0) or 0
+            usage_dict = {
+                "input_tokens": input_tokens,
+                "output_tokens": output_tokens,
+                "total_tokens": input_tokens + output_tokens,
+            }
+
         return LLMResponse(
             text="\n".join(text_parts),
             tool_calls=tool_calls,
             stop_reason=response.stop_reason,
             raw=response,
+            usage=usage_dict,
         )

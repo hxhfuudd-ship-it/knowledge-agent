@@ -1,6 +1,6 @@
 """标准化 LLM 响应模型"""
 from dataclasses import dataclass, field
-from typing import List, Optional
+from typing import List, Optional, Dict
 
 
 @dataclass
@@ -16,6 +16,7 @@ class LLMResponse:
     tool_calls: List[ToolCall] = field(default_factory=list)
     stop_reason: str = ""
     raw: object = None
+    usage: Optional[Dict[str, int]] = None
 
     @property
     def has_tool_calls(self) -> bool:

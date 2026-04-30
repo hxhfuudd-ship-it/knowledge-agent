@@ -1,11 +1,9 @@
 """基准测试：自动化运行测试用例并生成评估报告"""
-import json
+import argparse
 import time
 import yaml
 from typing import List, Dict
 from pathlib import Path
-from .metrics import Metrics
-
 EVAL_DIR = Path(__file__).parent
 
 
@@ -24,6 +22,40 @@ class Benchmark:
         with open(path, "r", encoding="utf-8") as f:
             data = yaml.safe_load(f)
         return data.get("test_cases", [])
+
+    def validate_cases(self, test_cases: List[Dict] = None) -> Dict:
+        """Validate benchmark case structure without calling an Agent."""
+        if test_cases is None:
+            test_cases = self.load_test_cases()
+
+        details = []
+        passed = 0
+        for case in test_cases:
+            missing = [key for key in ("name", "query", "category") if not case.get(key)]
+            ok = (
+                not missing
+                and isinstance(case.get("expected_tools", []), list)
+                and isinstance(case.get("expected_keywords", []), list)
+            )
+            if ok:
+                passed += 1
+            details.append({
+                "name": case.get("name", ""),
+                "category": case.get("category", ""),
+                "query": case.get("query", ""),
+                "passed": ok,
+                "latency_ms": 0,
+                "error": "缺少或无效字段: %s" % ", ".join(missing) if missing else "",
+            })
+
+        failed = len(test_cases) - passed
+        return {
+            "total": len(test_cases),
+            "passed": passed,
+            "failed": failed,
+            "pass_rate": passed / len(test_cases) if test_cases else 0,
+            "details": details,
+        }
 
     def run(self, test_cases: List[Dict] = None) -> Dict:
         """运行基准测试"""
@@ -136,3 +168,43 @@ class Benchmark:
             report += "\n"
 
         return report
+
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description="Run Agent benchmark cases")
+    parser.add_argument("--cases", help="Path to test_cases.yaml")
+    parser.add_argument("--output", help="Write Markdown report to this path")
+    parser.add_argument(
+        "--live",
+        action="store_true",
+        help="Use the real Agent and configured LLM. By default this is a dry run that only validates cases.",
+    )
+    args = parser.parse_args()
+
+    agent = None
+    if args.live:
+        from src.agent.core import Agent
+        agent = Agent()
+
+    benchmark = Benchmark(agent=agent)
+    cases = benchmark.load_test_cases(args.cases)
+    if args.live:
+        results = benchmark.run(cases)
+    else:
+        results = benchmark.validate_cases(cases)
+    report = benchmark.generate_report(results)
+
+    if args.output:
+        output_path = Path(args.output)
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        output_path.write_text(report, encoding="utf-8")
+        print("Report written to: %s" % output_path)
+    else:
+        print(report)
+
+    return 0 if results.get("failed", 0) == 0 else 1
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

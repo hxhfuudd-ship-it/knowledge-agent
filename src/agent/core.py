@@ -1,5 +1,6 @@
 """Agent 核心：ReAct 循环 - 感知、思考、行动、观察"""
 import logging
+import time
 from pathlib import Path
 from dotenv import load_dotenv
 
@@ -22,6 +23,7 @@ from ..memory.long_term import LongTermMemory
 from ..memory.episodic import EpisodicMemory
 from ..memory.working import WorkingMemory
 from ..llm import create_llm_client
+from ..observability import TraceRecorder
 from .. import config
 
 logger = logging.getLogger(__name__)
@@ -60,6 +62,7 @@ class Agent:
         self.skill_registry = SkillRegistry(match_strategy=skill_strategy)
         self.conversation = []
         self.tool_call_log = []
+        self.trace = TraceRecorder()
 
         max_messages = config.get("memory.short_term_max_messages", 20)
         self.short_term = ShortTermMemory(max_messages=max_messages)
@@ -107,10 +110,22 @@ class Agent:
         return "\n".join(parts)
 
     def _call_llm(self, messages, system_prompt=None):
-        return self.llm.chat(
+        start = time.perf_counter()
+        response = self.llm.chat(
             messages=messages,
             system=system_prompt or BASE_SYSTEM_PROMPT,
             tools=self.registry.to_claude_tools(),
+        )
+        self._record_llm_call(response, start)
+        return response
+
+    def _record_llm_call(self, response, start_time):
+        duration_ms = (time.perf_counter() - start_time) * 1000
+        self.trace.add_llm_call(
+            model=getattr(self.llm, "model", "unknown"),
+            stop_reason=getattr(response, "stop_reason", ""),
+            duration_ms=duration_ms,
+            usage=getattr(response, "usage", None),
         )
 
     def _execute_tool(self, name, input_data):
@@ -123,11 +138,17 @@ class Agent:
             logger.error("工具 %s 执行失败: %s", name, e)
             return "工具执行错误: %s" % e
 
+    @staticmethod
+    def _is_tool_success(result: str) -> bool:
+        failure_prefixes = ("未知工具", "工具执行错误", "错误", "执行错误", "SQL 执行错误", "计算错误")
+        return not str(result).startswith(failure_prefixes)
+
     def chat(self, user_message):
         """处理用户消息，返回 {"response": str, "tool_calls": list, "skill": str|None}"""
         self.conversation.append({"role": "user", "content": user_message})
         self.short_term.add("user", user_message)
         self.tool_call_log = []
+        self.trace = TraceRecorder()
 
         self._trim_conversation()
 
@@ -137,6 +158,7 @@ class Agent:
         messages = list(self.conversation)
 
         try:
+            response = None
             for _ in range(self.max_iterations):
                 response = self._call_llm(messages, system_prompt)
 
@@ -157,6 +179,7 @@ class Agent:
             return self._build_result(response.text or "抱歉，处理过程过于复杂，请简化你的问题。", matched_skill)
         except Exception as e:
             logger.error("API 调用失败: %s", e)
+            self.trace.add_error("agent.chat", str(e))
             error_msg = "API 调用失败，请检查网络和 API Key 配置。"
             self._save_assistant_turn(error_msg)
             return self._build_result(error_msg, matched_skill)
@@ -164,12 +187,18 @@ class Agent:
     def _process_tool_calls(self, response):
         tool_results = []
         for tc in response.tool_calls:
+            start = time.perf_counter()
             result = self._execute_tool(tc.name, tc.input)
+            duration_ms = (time.perf_counter() - start) * 1000
+            success = self._is_tool_success(result)
             self.tool_call_log.append({
                 "tool": tc.name,
                 "input": tc.input,
                 "output": result,
+                "duration_ms": round(duration_ms, 2),
+                "success": success,
             })
+            self.trace.add_tool_call(tc.name, duration_ms, success, tc.input, result)
             self.working.add_step("调用 %s" % tc.name, result[:200])
             tool_results.append(self.llm.format_tool_result(tc.id, result))
         return tool_results
@@ -191,6 +220,7 @@ class Agent:
             "response": text,
             "tool_calls": self.tool_call_log,
             "skill": matched_skill.name if matched_skill else None,
+            "trace": self.trace.to_dict(),
         }
 
     def save_memory(self, content, category="general"):
@@ -206,6 +236,7 @@ class Agent:
     def reset(self):
         self.conversation = []
         self.tool_call_log = []
+        self.trace = TraceRecorder()
         self.short_term.clear()
         self.working.clear()
 
@@ -214,6 +245,7 @@ class Agent:
         self.conversation.append({"role": "user", "content": user_message})
         self.short_term.add("user", user_message)
         self.tool_call_log = []
+        self.trace = TraceRecorder()
         self._trim_conversation()
 
         system_prompt = self._build_system_prompt(user_message)
@@ -224,6 +256,7 @@ class Agent:
             for _ in range(self.max_iterations):
                 response = None
 
+                llm_start = time.perf_counter()
                 for event in self.llm.chat_stream(
                     messages=messages,
                     system=system_prompt or BASE_SYSTEM_PROMPT,
@@ -233,6 +266,8 @@ class Agent:
                         yield event
                     elif event["type"] == "final":
                         response = event["response"]
+                if response:
+                    self._record_llm_call(response, llm_start)
 
                 if not response:
                     break
@@ -247,7 +282,7 @@ class Agent:
                     messages.append(self.llm.build_assistant_message(response))
                     tool_results = self._process_tool_calls(response)
                     for tc in self.tool_call_log[-len(tool_results):]:
-                        yield {"type": "tool_call", "tool": tc["tool"], "input": tc["input"], "output": tc["output"]}
+                        yield {"type": "tool_call", **tc}
                     messages.extend(self.llm.format_tool_results(tool_results))
                     continue
 
@@ -258,6 +293,7 @@ class Agent:
                 yield {"type": "done", "result": self._build_result(response.text or "抱歉，处理过程过于复杂，请简化你的问题。", matched_skill)}
         except Exception as e:
             logger.error("API 调用失败: %s", e)
+            self.trace.add_error("agent.chat_stream", str(e))
             error_msg = "API 调用失败，请检查网络和 API Key 配置。"
             self._save_assistant_turn(error_msg)
             yield {"type": "error", "result": self._build_result(error_msg, matched_skill)}

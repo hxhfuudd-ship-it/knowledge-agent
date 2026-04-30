@@ -79,7 +79,7 @@ class OpenAIAdapter(BaseAdapter):
             tool_calls.append(ToolCall(id=tc["id"], name=tc["name"], input=args))
 
         stop = STOP_REASON_MAP.get(finish_reason, finish_reason)
-        resp = LLMResponse(text=collected_text, tool_calls=tool_calls, stop_reason=stop)
+        resp = LLMResponse(text=collected_text, tool_calls=tool_calls, stop_reason=stop, usage={})
         yield {"type": "final", "response": resp}
 
     def format_tools(self, tools):
@@ -132,9 +132,19 @@ class OpenAIAdapter(BaseAdapter):
                     args = {}
                 tool_calls.append(ToolCall(id=tc.id, name=tc.function.name, input=args))
         stop = STOP_REASON_MAP.get(choice.finish_reason, choice.finish_reason or "end_turn")
+        usage = getattr(response, "usage", None)
+        usage_dict = {}
+        if usage:
+            usage_dict = {
+                "prompt_tokens": getattr(usage, "prompt_tokens", 0) or 0,
+                "completion_tokens": getattr(usage, "completion_tokens", 0) or 0,
+                "total_tokens": getattr(usage, "total_tokens", 0) or 0,
+            }
+
         return LLMResponse(
             text=msg.content or "",
             tool_calls=tool_calls,
             stop_reason=stop,
             raw=response,
+            usage=usage_dict,
         )

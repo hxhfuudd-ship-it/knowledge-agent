@@ -5,6 +5,7 @@ from pathlib import Path
 import streamlit as st
 from src.agent.core import Agent
 from src import config
+from src.path_utils import normalize_project_name, resolve_under, table_name_from_filename
 
 st.set_page_config(page_title="知识库数据 Agent", page_icon="🤖", layout="wide")
 st.title("🤖 知识库数据 Agent")
@@ -32,6 +33,24 @@ def get_db_tables():
     except sqlite3.Error:
         return {}
 
+
+
+def render_trace(trace):
+    if not trace:
+        return
+    summary = trace.get("summary", {})
+    tokens = summary.get("tokens", {})
+    with st.expander("📡 Trace / 性能"):
+        cols = st.columns(4)
+        cols[0].metric("总耗时", "%sms" % summary.get("total_duration_ms", 0))
+        cols[1].metric("LLM 调用", summary.get("llm_calls", 0))
+        cols[2].metric("工具调用", summary.get("tool_calls", 0))
+        cols[3].metric("Token", tokens.get("total_tokens", 0))
+        for event in trace.get("events", []):
+            st.caption("%s · %s · %sms" % (event.get("type"), event.get("name"), event.get("duration_ms", 0)))
+            metadata = event.get("metadata") or {}
+            if metadata:
+                st.json(metadata, expanded=False)
 
 # 初始化
 if "agent" not in st.session_state:
@@ -116,24 +135,31 @@ with st.sidebar:
         with col1:
             new_name = st.text_input("新建项目", placeholder="项目名")
             if st.button("创建") and new_name:
-                new_name = new_name.strip().replace(" ", "_").replace("-", "_")
-                new_db = DATABASES_DIR / ("%s.db" % new_name)
-                if new_db.exists():
-                    st.warning("项目已存在")
-                else:
-                    sqlite3.connect(str(new_db)).close()
-                    st.session_state.current_project = new_name
-                    config.set("database.path", "data/databases/%s.db" % new_name)
-                    st.success("已创建: %s" % new_name)
-                    st.rerun()
+                try:
+                    new_name = normalize_project_name(new_name)
+                    new_db = resolve_under(DATABASES_DIR, "%s.db" % new_name)
+                    if new_db.exists():
+                        st.warning("项目已存在")
+                    else:
+                        sqlite3.connect(str(new_db)).close()
+                        st.session_state.current_project = new_name
+                        config.set("database.path", "data/databases/%s.db" % new_name)
+                        st.success("已创建: %s" % new_name)
+                        st.rerun()
+                except ValueError as e:
+                    st.warning(str(e))
         with col2:
             if st.button("删除当前项目") and selected != "default":
-                db_file = DATABASES_DIR / ("%s.db" % selected)
-                if db_file.exists():
-                    db_file.unlink()
-                st.session_state.current_project = "default"
-                config.set("database.path", "data/databases/default.db")
-                st.rerun()
+                try:
+                    safe_selected = normalize_project_name(selected)
+                    db_file = resolve_under(DATABASES_DIR, "%s.db" % safe_selected)
+                    if db_file.exists():
+                        db_file.unlink()
+                    st.session_state.current_project = "default"
+                    config.set("database.path", "data/databases/default.db")
+                    st.rerun()
+                except ValueError as e:
+                    st.warning(str(e))
             elif selected == "default":
                 st.caption("default 不可删除")
 
@@ -148,8 +174,8 @@ with st.sidebar:
                 db_path = PROJECT_ROOT / config.get("database.path", "data/databases/default.db")
                 success_count = 0
                 for uf in uploaded_files:
-                    table_name = uf.name.replace(".csv", "").replace(" ", "_").replace("-", "_")
-                    save_path = PROJECT_ROOT / "data" / uf.name
+                    table_name = table_name_from_filename(uf.name)
+                    save_path = resolve_under(PROJECT_ROOT / "data", Path(uf.name).name)
                     save_path.write_bytes(uf.getvalue())
                     try:
                         df = pd.read_csv(str(save_path))
@@ -216,6 +242,8 @@ for msg in st.session_state.messages:
                         st.text(output[:500])
                     st.divider()
 
+        render_trace(msg.get("trace"))
+
 # 处理输入
 pending = st.session_state.pop("pending_input", None)
 user_input = st.chat_input("输入你的问题...") or pending
@@ -271,10 +299,14 @@ if user_input:
                         st.text(output[:500])
                     st.divider()
 
+        if final_result:
+            render_trace(final_result.get("trace"))
+
     st.session_state.messages.append({
         "role": "assistant",
         "content": final_result["response"] if final_result else "",
         "tool_calls": final_result["tool_calls"] if final_result else [],
         "skill": final_result.get("skill") if final_result else None,
         "skill_scores": skill_scores,
+        "trace": final_result.get("trace") if final_result else None,
     })

@@ -4,6 +4,8 @@ import argparse
 import sqlite3
 from pathlib import Path
 
+from src.path_utils import is_sql_identifier, normalize_project_name, table_name_from_filename
+
 PROJECT_ROOT = Path(__file__).parent
 
 
@@ -13,7 +15,7 @@ def _get_db_path(project=None):
     with open(config_path, encoding="utf-8") as f:
         cfg = yaml.safe_load(f)
     if project:
-        return PROJECT_ROOT / "data" / "databases" / ("%s.db" % project)
+        return PROJECT_ROOT / "data" / "databases" / ("%s.db" % normalize_project_name(project))
     return PROJECT_ROOT / cfg.get("database", {}).get("path", "data/databases/default.db")
 
 
@@ -23,6 +25,9 @@ def import_csv(csv_path: str, table_name: str, if_exists: str = "replace", proje
     csv_file = Path(csv_path)
     if not csv_file.exists():
         print("文件不存在: %s" % csv_path)
+        return False
+    if not is_sql_identifier(table_name):
+        print("非法表名: %s（只允许字母、数字和下划线，且不能以数字开头）" % table_name)
         return False
 
     db_path = _get_db_path(project)
@@ -51,7 +56,7 @@ def import_folder(folder_path: str, if_exists: str = "replace", project: str = N
     print("找到 %d 个 CSV 文件\n" % len(csv_files))
     success = 0
     for f in csv_files:
-        table_name = f.stem.replace(" ", "_").replace("-", "_")
+        table_name = table_name_from_filename(f.name)
         if import_csv(str(f), table_name, if_exists, project):
             success += 1
         print()
@@ -95,7 +100,7 @@ if __name__ == "__main__":
     if p.is_dir():
         import_folder(args.path, args.mode, args.project)
     elif p.is_file():
-        table_name = args.table or p.stem.replace(" ", "_").replace("-", "_")
+        table_name = args.table or table_name_from_filename(p.name)
         import_csv(args.path, table_name, args.mode, args.project)
     else:
         print("路径不存在: %s" % args.path)

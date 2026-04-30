@@ -24,16 +24,20 @@ class ShortTermMemory:
         keep = self.max_messages // 2
         old_messages = self.messages[:-keep]
         self.messages = self.messages[-keep:]
+        old_text = self._messages_to_text(old_messages)
 
         compressor = self._get_compressor()
         if compressor:
-            old_text = self._messages_to_text(old_messages)
-            prefix = "之前的对话摘要：%s\n\n" % self._summary if self._summary else ""
-            self._summary = compressor(prefix + old_text)
-            logger.info("对话已压缩，摘要长度: %d", len(self._summary))
-        else:
-            old_text = self._messages_to_text(old_messages[-4:])
-            self._summary = (self._summary + "\n" + old_text).strip()[-500:]
+            try:
+                prefix = "之前的对话摘要：%s\n\n" % self._summary if self._summary else ""
+                self._summary = compressor(prefix + old_text)
+                logger.info("对话已压缩，摘要长度: %d", len(self._summary))
+                return
+            except Exception as e:
+                logger.warning("LLM 压缩失败，使用简单截断: %s", e)
+
+        fallback_text = self._messages_to_text(old_messages[-4:])
+        self._summary = (self._summary + "\n" + fallback_text).strip()[-500:]
 
     def _get_compressor(self):
         if self._compressor is not None:

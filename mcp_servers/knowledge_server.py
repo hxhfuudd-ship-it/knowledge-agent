@@ -7,6 +7,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from src.rag.rag_tool import RAGSearchTool
+from src.path_utils import resolve_under
 
 DOCS_DIR = Path(__file__).parent.parent / "data" / "documents"
 
@@ -101,11 +102,13 @@ def handle_tools_call(params: dict) -> dict:
         if not _SAFE_FILENAME_RE.match(title):
             return {"content": [{"type": "text", "text": "文档标题包含非法字符"}], "isError": True}
 
-        filepath = (DOCS_DIR / ("%s.md" % title)).resolve()
-        if not str(filepath).startswith(str(DOCS_DIR.resolve())):
+        try:
+            filepath = resolve_under(DOCS_DIR, "%s.md" % title)
+        except ValueError:
             return {"content": [{"type": "text", "text": "路径不合法"}], "isError": True}
 
         content = arguments["content"]
+        DOCS_DIR.mkdir(parents=True, exist_ok=True)
         filepath.write_text(content, encoding="utf-8")
 
         rag = get_rag_tool()
@@ -115,6 +118,8 @@ def handle_tools_call(params: dict) -> dict:
         return {"content": [{"type": "text", "text": "文档 '%s' 已添加到知识库" % title}]}
 
     elif tool_name == "list_sources":
+        if not DOCS_DIR.exists():
+            return {"content": [{"type": "text", "text": "[]"}]}
         files = [f.name for f in DOCS_DIR.iterdir() if f.is_file()]
         return {"content": [{"type": "text", "text": json.dumps(sorted(files), ensure_ascii=False)}]}
 
@@ -122,6 +127,8 @@ def handle_tools_call(params: dict) -> dict:
 
 
 def handle_resources_list(params: dict) -> dict:
+    if not DOCS_DIR.exists():
+        return {"resources": []}
     files = [f.name for f in DOCS_DIR.iterdir() if f.is_file()]
     resources = [
         {"uri": "knowledge:///%s" % f, "name": f, "mimeType": "text/plain"}
@@ -136,11 +143,12 @@ def handle_resources_read(params: dict) -> dict:
     if not _SAFE_FILENAME_RE.match(filename):
         return {"contents": []}
 
-    filepath = (DOCS_DIR / filename).resolve()
-    if not str(filepath).startswith(str(DOCS_DIR.resolve())):
+    try:
+        filepath = resolve_under(DOCS_DIR, filename)
+    except ValueError:
         return {"contents": []}
 
-    if filepath.exists():
+    if filepath.exists() and filepath.is_file():
         content = filepath.read_text(encoding="utf-8")
         return {"contents": [{"uri": uri, "mimeType": "text/plain", "text": content}]}
     return {"contents": []}

@@ -4,18 +4,23 @@
 
 | 模块 | 状态 | 说明 |
 |------|------|------|
-| Agent 核心 | 已完成 | ReAct 循环、Tool Use、Skill 路由 |
-| 工具层 | 已完成 | 6 个工具全部实现 |
-| Skills 系统 | 已完成 | 4 个 Skill + 关键词匹配路由 |
-| RAG 系统 | 已完成 | 完整流水线 + 真实 Embedding |
-| MCP 协议 | 已完成 | 2 个 Server + Client |
-| 记忆系统 | 已完成 | 4 种记忆类型 |
+| Agent 核心 | 已完成 | ReAct 循环、Tool Use、Skill 路由、流式输出、Trace 记录 |
+| LLM 抽象层 | 已完成 | Anthropic / OpenAI 兼容适配器、统一 Tool Call 与 Usage 格式 |
+| 工具层 | 已完成 | SQL、计算、文件、Python、搜索、图表、CSV、RAG 等核心工具 |
+| Skills 系统 | 已完成 | 4 个 Skill + keyword / embedding / hybrid 路由 |
+| RAG 系统 | 已完成 | 文档加载、切片、Embedding、向量检索、BM25、索引变更检测 |
+| MCP 协议 | 已完成 | SQLite Server、Knowledge Server、JSON-RPC Client |
+| 记忆系统 | 已完成 | 短期、长期、情景、工作记忆 |
 | 多 Agent | 已完成 | Orchestrator + 3 个 SubAgent |
-| 评估体系 | 已完成 | 指标 + 基准测试 + 测试用例 |
-| 微调模块 | 已完成 | 数据准备 + 训练脚本 + 推理 |
-| 前端界面 | 已完成 | Streamlit 对话 + 记忆管理 |
-| 测试 | 已完成 | 4 个测试文件，全部通过 |
-| 文档 | 已完成 | README + PROGRESS + .env.example |
+| 评估体系 | 已完成 | 指标、基准用例、dry-run/live Benchmark CLI、Markdown 报告 |
+| 微调模块 | 已完成 | 数据准备、LoRA 训练脚本、推理封装 |
+| 可观测性 | 已完成 | TraceRecorder、LLM/Tool 耗时、Token Usage、错误事件、前端 Trace 面板 |
+| CI / 质量门禁 | 已完成 | Makefile、scripts/test.sh、scripts/lint.sh、GitHub Actions、pytest.ini |
+| 环境检查 | 已完成 | make doctor / python -m src.doctor 检查配置、数据库、知识库和依赖 |
+| 标准入口命令 | 已完成 | make run-app、make init-db、make benchmark、make check 等统一入口 |
+| 前端界面 | 已完成 | Streamlit 对话、项目管理、CSV 导入、记忆管理、Trace 展示 |
+| 测试 | 已完成 | 默认使用假 Embedding 稳定 CI；当前 35 passed、1 skipped |
+| 文档 | 已完成 | README、PROGRESS、.env.example、docs/agent_architecture.md |
 
 ---
 
@@ -77,28 +82,44 @@
 
 1. **安全性**
    - calculator_tool：eval() → AST 安全求值
-   - file_tool：路径遍历防护（resolve + startswith）
-   - sql_tool：token 级 SQL 注入检测
-   - python_tool：沙箱执行，禁止危险模块和内置函数
-   - MCP Server：正则表名验证，文件名校验
+   - file_tool / csv_import_tool / MCP Knowledge Server：统一路径边界校验，防止路径遍历
+   - sql_tool：token 级 SQL 注入检测，只允许安全查询形态
+   - python_tool：从同进程 exec 升级为隔离子进程执行，增加超时、输出截断、代码长度限制和安全 import/builtin 白名单
+   - MCP Server：SQL 表名、文件名、知识库路径均做显式校验
 
 2. **架构**
    - 统一配置系统（settings.yaml + 环境变量覆盖）
-   - 所有模块读 config，消除硬编码
-   - 统一 logging 初始化
-   - __init__.py 规范导出
+   - LLM Provider Adapter 抽象：Agent 不再绑定单一模型厂商
+   - requirements.txt / requirements-dev.txt 拆分运行依赖和开发依赖
+   - Makefile + scripts/ 标准化本地入口命令
+   - GitHub Actions 固化 CI 质量门禁
 
-3. **Embedding 升级**
-   - 从哈希伪向量升级到真实 sentence-transformers
-   - 检索相关度从 0.12 提升到 0.47-0.55
-   - 支持三种模型切换（chinese / multilingual / english）
+3. **RAG 与 Embedding**
+   - 从哈希伪向量升级到 sentence-transformers / Voyage / 哈希三级回退
+   - 默认测试使用 Fake/Hash Embedding，避免 CI 下载真实模型
+   - 真实 Embedding 测试通过 pytest marker 单独启用
+   - RAG 索引增加 manifest 变更检测，知识库文件变化后自动重建
+   - BM25 索引可从持久化向量库恢复，避免重启后关键词检索失效
 
 4. **健壮性**
    - SQLite 连接使用 with 上下文管理
    - JSON 文件加载增加异常处理
    - MCP Client 增加 BrokenPipeError 处理
    - Agent 对话存储修复（raw blocks → text string）
-   - BM25 中文分词修复（单字符 → 字词混合）
+   - Agent 对话窗口增加自动裁剪与压缩
+   - Benchmark 默认 dry-run，避免评估命令误触真实 LLM 调用
+
+5. **可观测性**
+   - TraceRecorder 记录每轮 Agent 执行过程
+   - LLM 调用记录耗时、stop_reason、token usage
+   - Tool 调用记录工具名、耗时、输入/输出摘要和成功状态
+   - Streamlit 前端展示 Trace / 性能面板，便于调试 Agent 行为
+
+6. **工程化**
+   - make check 一条命令完成 lint + test
+   - make doctor 一条命令检查运行环境
+   - make benchmark / make benchmark-live 区分离线结构评估和真实模型评估
+   - docs/agent_architecture.md 沉淀标准 Agent 项目模块说明
 
 ---
 
@@ -106,16 +127,21 @@
 
 | 知识点 | 对应文件 | 核心概念 |
 |--------|----------|----------|
-| Agent 架构 | src/agent/core.py | ReAct 循环、Tool Use |
-| Function Calling | src/tools/base.py | JSON Schema 参数定义 |
-| RAG 流水线 | src/rag/ | 切片、Embedding、混合检索 |
-| MCP 协议 | src/mcp/ + mcp_servers/ | JSON-RPC、Server/Client |
-| Skill 编排 | src/skills/ | Tool 组合 + 专用 Prompt |
-| 记忆系统 | src/memory/ | 短期/长期/情景/工作记忆 |
+| Agent 架构 | src/agent/core.py | ReAct 循环、Tool Use、流式输出、Trace 汇总 |
+| LLM 抽象层 | src/llm/ | Provider Adapter、统一响应模型、Tool Call 适配 |
+| Function Calling | src/tools/base.py | JSON Schema 参数定义、工具注册、Claude/OpenAI 工具格式 |
+| 工具安全 | src/tools/python_tool.py、src/path_utils.py | 子进程沙箱、路径边界、防注入校验 |
+| RAG 流水线 | src/rag/ | 切片、Embedding、混合检索、BM25、索引生命周期 |
+| MCP 协议 | src/mcp/ + mcp_servers/ | JSON-RPC、Server/Client、外部能力接入 |
+| Skill 编排 | src/skills/ | Tool 组合、专用 Prompt、语义/关键词路由 |
+| 记忆系统 | src/memory/ | 短期/长期/情景/工作记忆、上下文压缩 |
 | 多 Agent | src/multi_agent/ | 任务分解、编排、聚合 |
-| 评估 | src/eval/ | LLM-as-Judge、Benchmark |
-| 微调 | src/finetune/ | LoRA、数据准备 |
-| 安全实践 | 各 tool 文件 | AST 求值、路径防护、SQL 过滤 |
+| 可观测性 | src/observability.py、src/agent/core.py | Trace、耗时、Token、工具调用审计 |
+| 评估 | src/eval/benchmark.py、data/test_cases.yaml | dry-run/live Benchmark、报告生成 |
+| 微调 | src/finetune/ | LoRA、数据准备、推理封装 |
+| 环境检查 | src/doctor.py | 配置、数据库、知识库、依赖健康检查 |
+| 质量门禁 | Makefile、scripts/、.github/workflows/ci.yml | 本地一键验证、CI 自动化、开发依赖隔离 |
+| 架构文档 | docs/agent_architecture.md | 标准 Agent 项目模块拆解与学习路径 |
 
 ---
 
@@ -277,3 +303,38 @@
    - CSV 多文件上传批量导入
    - 数据库表列表动态展示（实时读取当前项目）
    - 示例问题改为两列网格布局 + 图标
+
+### Day 6 — 标准 Agent 工程化补齐
+
+1. 数据库默认路径统一为 data/databases/default.db，避免脚本、工具和配置各自指向不同数据库
+2. 新增 src/path_utils.py，集中管理路径边界校验、SQL 标识符校验、文件名到表名转换、项目名规范化
+3. RAG 索引生命周期补强：新增 data/vector_store_manifest.json 变更检测，知识库文件变化后自动重建索引
+4. Retriever 支持从持久化向量库恢复 BM25 索引，解决重启后关键词检索状态丢失问题
+5. Embedding 测试默认 mock / fake 化，完整测试集不再依赖真实模型下载；真实 Embedding 测试改为 RUN_EMBEDDING_TESTS=1 单独启用
+6. 新增 pytest.ini，标记 embedding 测试，统一 pytest 行为
+7. 新增 requirements-dev.txt，将 pytest、ruff 等开发依赖从运行依赖中拆出
+8. 新增 Makefile、scripts/test.sh、scripts/lint.sh 和 .github/workflows/ci.yml，形成 make check 本地/CI 统一质量门禁
+9. python_tool 从同进程 exec 改为隔离子进程执行，增加 -I isolated mode、3 秒超时、输出截断和代码长度限制
+10. Agent 测试补充 fake LLM ReAct 循环覆盖，保证工具调用链路可以离线稳定验证
+11. 新增 src/observability.py TraceRecorder，Agent 返回 trace，记录 LLM/Tool 耗时、Token Usage、输入输出摘要和错误事件
+12. Streamlit 前端新增 “Trace / 性能” 面板，能直接观察每轮 Agent 的工具调用和性能信息
+13. 新增 src/doctor.py，支持 python3 -m src.doctor / make doctor 检查 .env、LLM 凭据、数据库、知识库和关键依赖
+14. src/eval/benchmark.py 标准化为 CLI，默认 dry-run 校验测试用例结构，--live 才调用真实 Agent/LLM
+15. 新增 scripts/run_app.sh、scripts/init_db.sh，并通过 make run-app / make init-db 暴露标准入口命令
+16. 新增 docs/agent_architecture.md，把本项目沉淀为标准 Agent 工程骨架学习文档
+17. 最新验证：make doctor 通过（11 passed, 0 failed）；make check 通过（35 passed, 1 skipped）
+
+### Day 7 — 开发与贡献文档补齐
+
+1. 新增 CONTRIBUTING.md，明确贡献目标、本地开发流程、代码规范、安全边界、测试要求和 PR 检查清单
+2. 新增 docs/development.md，沉淀标准 Agent 项目的开发心智模型、模块扩展流程、测试策略、可观测性规范和排查路径
+3. README 增加开发与贡献文档入口，形成 README → 架构文档 → 开发手册 → 贡献指南的学习路径
+
+### Day 8 — 个人学习资料包整理
+
+1. 新建 my_own_learning/ 文件夹，集中保存面向个人学习和面试准备的补充资料
+2. 新增 my_own_learning/learning_path.md，按 Agent Core、Tool、RAG、Skill、Memory、MCP、Eval、Trace 组织学习路径
+3. 新增 my_own_learning/interview_guide.md，整理项目介绍、亮点讲法、Demo 路线和常见面试问答
+4. 新增 my_own_learning/framework_comparison.md，对比 LangChain、LangGraph、LlamaIndex、CrewAI、AutoGen 等框架与本项目的关系
+5. 新增 my_own_learning/demo_scenarios.md，沉淀 RAG、SQL、图表、CSV、Python 沙箱、Trace、Benchmark 等演示脚本
+6. README 增加 my_own_learning/README.md 入口，把正式工程文档和个人学习资料区分开

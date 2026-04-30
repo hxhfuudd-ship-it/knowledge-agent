@@ -26,7 +26,7 @@ class SQLTool(Tool):
 
     @staticmethod
     def _get_table_info() -> str:
-        db_path = _project_root / config.get("database.path", "data/sample.db")
+        db_path = _project_root / config.get("database.path", "data/databases/default.db")
         try:
             with sqlite3.connect(str(db_path)) as conn:
                 cursor = conn.execute("SELECT name FROM sqlite_master WHERE type='table' ORDER BY name")
@@ -63,7 +63,7 @@ class SQLTool(Tool):
             if kw in tokens:
                 return "错误：禁止使用 %s 操作" % kw
 
-        db_path = _project_root / config.get("database.path", "data/sample.db")
+        db_path = _project_root / config.get("database.path", "data/databases/default.db")
         try:
             with sqlite3.connect(str(db_path)) as conn:
                 conn.row_factory = sqlite3.Row

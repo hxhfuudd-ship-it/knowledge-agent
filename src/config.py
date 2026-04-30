@@ -78,7 +78,7 @@ def _apply_env_overrides(config: dict):
 def _default_config() -> dict:
     return {
         "llm": {"model": "claude-sonnet-4-20250514", "max_tokens": 4096, "temperature": 0},
-        "database": {"path": "data/sample.db"},
+        "database": {"path": "data/databases/default.db"},
         "rag": {"chunk_size": 512, "chunk_overlap": 50, "collection_name": "knowledge_base", "top_k": 5},
         "memory": {"short_term_max_messages": 20, "long_term_collection": "long_term_memory"},
         "agent": {"max_iterations": 10, "strategy": "react"},

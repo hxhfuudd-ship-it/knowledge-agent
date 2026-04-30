@@ -14,7 +14,7 @@
 ## 快速开始
 
 ```bash
-# 1. 安装依赖
+# 1. 安装运行依赖
 pip install -r requirements.txt
 
 # 2. 配置环境变量
@@ -22,10 +22,19 @@ cp .env.example .env
 # 编辑 .env，填入 ANTHROPIC_API_KEY
 
 # 3. 初始化数据库
-python3 data/init_db.py
+make init-db
 
-# 4. 启动界面
-streamlit run app.py
+# 4. 检查本地环境
+make doctor
+
+# 5. 启动界面
+make run-app
+```
+
+开发和运行测试时安装额外依赖：
+
+```bash
+pip install -r requirements-dev.txt
 ```
 
 ## 项目结构
@@ -75,7 +84,7 @@ knowledge-agent/
 │   ├── sqlite_server.py       # SQLite MCP Server
 │   └── knowledge_server.py    # 知识库 MCP Server
 ├── data/
-│   ├── sample.db              # SQLite 模拟数据（6 张表）
+│   ├── databases/default.db   # SQLite 模拟数据（6 张表）
 │   └── documents/             # 知识库文档
 ├── tests/                     # 测试文件
 ├── app.py                     # Streamlit 主界面
@@ -83,6 +92,8 @@ knowledge-agent/
 ```
 
 ## 核心模块说明
+
+更完整的标准 Agent 架构说明见：`docs/agent_architecture.md`。
 
 ### Agent 核心（ReAct 循环）
 感知 → 思考 → 行动 → 观察，循环直到任务完成。支持 Tool Use 和 Skill 路由。
@@ -109,6 +120,54 @@ knowledge-agent/
 | chinese | text2vec-base-chinese | 768 | 中文（默认） |
 | multilingual | paraphrase-multilingual-MiniLM-L12-v2 | 384 | 多语言 |
 | english | all-MiniLM-L6-v2 | 384 | 英文 |
+
+## 测试
+
+默认测试使用假 Embedding / 哈希回退，不会下载或加载真实模型，适合本地开发和 CI：
+
+```bash
+pip install -r requirements-dev.txt
+```
+
+```bash
+make test
+```
+
+运行完整质量门禁（lint + test）：
+
+```bash
+make check
+```
+
+检查本地运行环境（`.env`、API Key、数据库、依赖）：
+
+```bash
+make doctor
+```
+
+如需验证真实 Embedding 模型可用性，显式开启集成测试：
+
+```bash
+make test-embedding
+```
+
+## 常用入口命令
+
+| 命令 | 说明 |
+|---|---|
+| `make init-db` | 初始化 SQLite 示例数据库 |
+| `make run-app` | 启动 Streamlit Web UI |
+| `make doctor` | 检查本地环境、密钥、数据库和依赖 |
+| `make benchmark` | dry-run 基准测试，验证评估用例结构并生成报告 |
+| `make benchmark-live` | 使用真实 Agent/LLM 跑基准测试并生成报告 |
+| `make check` | 运行 lint + 默认测试 |
+
+## 学习、开发与贡献文档
+
+- 个人学习路径、面试讲解、框架对比和 Demo 脚本见：`my_own_learning/README.md`
+- 贡献流程、代码规范和 PR 检查清单见：`CONTRIBUTING.md`
+- 开发者扩展手册、模块新增流程和排查指南见：`docs/development.md`
+- 标准 Agent 架构拆解见：`docs/agent_architecture.md`
 
 ## 配置
 

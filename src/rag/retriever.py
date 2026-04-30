@@ -57,8 +57,20 @@ class Retriever:
             metadatas=metadatas,
         )
 
-        self._documents = texts
-        self._build_bm25(texts)
+        self._documents = list(self.collection.documents)
+        self._build_bm25(self._documents)
+
+    def rebuild_documents(self, chunks: List[Document]):
+        self.collection.clear()
+        self._documents = []
+        self._bm25 = None
+        self.add_documents(chunks)
+
+    def ensure_bm25_index(self):
+        documents = list(self.collection.documents)
+        if documents and (self._bm25 is None or self._documents != documents):
+            self._documents = documents
+            self._build_bm25(documents)
 
     def _build_bm25(self, texts: List[str]):
         try:
@@ -111,6 +123,7 @@ class Retriever:
         return items
 
     def search_bm25(self, query: str, top_k: Optional[int] = None) -> List[Tuple[str, float]]:
+        self.ensure_bm25_index()
         if not self._bm25 or not self._documents:
             return []
 

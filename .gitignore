@@ -13,9 +13,12 @@ venv/
 # Data (generated)
 data/sample.db
 data/vector_store.json
+data/vector_store_manifest.json
 data/long_term_memory.json
 data/episodic_memory.json
+data/databases/*.db
 data/finetune_data.jsonl
+data/benchmark_report.md
 data/charts/
 
 # Models (large, download locally)

@@ -1,4 +1,5 @@
 """RAG 检索工具：让 Agent 能通过 RAG 检索知识库文档"""
+import json
 import logging
 from typing import List
 from pathlib import Path
@@ -12,6 +13,7 @@ from .. import config
 logger = logging.getLogger(__name__)
 
 DOCS_DIR = Path(__file__).parent.parent.parent / "data" / "documents"
+MANIFEST_PATH = Path(__file__).parent.parent.parent / "data" / "vector_store_manifest.json"
 
 _shared_retriever = None
 
@@ -48,11 +50,52 @@ class RAGSearchTool(Tool):
         self.retriever = _get_retriever()
         self.reranker = SimpleReranker()
         self._indexed = False
+        self._index_signature = None
+
+    @staticmethod
+    def _docs_signature() -> List[dict]:
+        if not DOCS_DIR.exists():
+            return []
+        loader = DocumentLoader()
+        files = [
+            f for f in DOCS_DIR.iterdir()
+            if f.is_file() and f.suffix.lower() in loader.SUPPORTED_SUFFIXES
+        ]
+        signature = []
+        for f in sorted(files):
+            stat = f.stat()
+            signature.append({
+                "path": f.name,
+                "mtime_ns": stat.st_mtime_ns,
+                "size": stat.st_size,
+            })
+        return signature
+
+    @staticmethod
+    def _load_manifest():
+        if not MANIFEST_PATH.exists():
+            return None
+        try:
+            with open(MANIFEST_PATH, "r", encoding="utf-8") as f:
+                return json.load(f).get("documents")
+        except (json.JSONDecodeError, IOError):
+            return None
+
+    @staticmethod
+    def _save_manifest(signature: List[dict]):
+        MANIFEST_PATH.parent.mkdir(parents=True, exist_ok=True)
+        with open(MANIFEST_PATH, "w", encoding="utf-8") as f:
+            json.dump({"documents": signature}, f, ensure_ascii=False, indent=2)
 
     def ensure_indexed(self):
-        if self._indexed:
+        signature = self._docs_signature()
+        if self._indexed and self._index_signature == signature:
+            self.retriever.ensure_bm25_index()
             return
-        if self.retriever.collection.count() > 0:
+
+        if self.retriever.collection.count() > 0 and self._load_manifest() == signature:
+            self.retriever.ensure_bm25_index()
+            self._index_signature = signature
             self._indexed = True
             return
 
@@ -64,8 +107,14 @@ class RAGSearchTool(Tool):
         docs = loader.load(str(DOCS_DIR))
         if docs:
             chunks = chunker.chunk(docs, strategy="recursive")
-            self.retriever.add_documents(chunks)
+            self.retriever.rebuild_documents(chunks)
+            self._save_manifest(signature)
             logger.info("已索引 %d 个文档切片", len(chunks))
+        else:
+            self.retriever.collection.clear()
+            self._save_manifest(signature)
+
+        self._index_signature = signature
         self._indexed = True
 
     def execute(self, query: str, top_k: int = 3) -> str:

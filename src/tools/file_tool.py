@@ -1,6 +1,7 @@
 """文件读写工具：读取知识库目录下的文件"""
 from pathlib import Path
 from .base import Tool
+from ..path_utils import resolve_under
 
 ALLOWED_DIR = Path(__file__).parent.parent.parent / "data" / "documents"
 
@@ -23,10 +24,11 @@ class FileReadTool(Tool):
     }
 
     def execute(self, filename: str) -> str:
-        filepath = (ALLOWED_DIR / filename).resolve()
-        if not str(filepath).startswith(str(ALLOWED_DIR.resolve())):
+        try:
+            filepath = resolve_under(ALLOWED_DIR, filename)
+        except ValueError:
             return "错误：文件路径不合法"
-        if not filepath.exists():
+        if not filepath.exists() or not filepath.is_file():
             return "文件不存在: %s" % filename
 
         try:

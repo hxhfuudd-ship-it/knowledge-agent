@@ -10,6 +10,8 @@ from src.tools.file_tool import FileReadTool, FileListTool
 from src.tools.python_tool import PythonTool
 from src.tools.search_tool import SearchTool
 from src.tools.chart_tool import ChartTool
+from src.tools.csv_import_tool import CsvImportTool
+from src.path_utils import normalize_project_name, table_name_from_filename
 
 
 def test_calculator_basic():
@@ -73,6 +75,13 @@ def test_python_tool_sandbox():
     print("  OK  python sandbox blocks dangerous ops")
 
 
+def test_python_tool_timeout():
+    py = PythonTool()
+    result = py.execute(code="while True:\n    pass")
+    assert "超时" in result
+    print("  OK  python sandbox timeout")
+
+
 def test_search_tool():
     s = SearchTool()
     result = s.execute(query="test")
@@ -85,6 +94,20 @@ def test_chart_tool_bad_data():
     result = c.execute(chart_type="bar", title="test", data={"labels": ["a"], "values": []})
     assert "错误" in result
     print("  OK  chart tool rejects bad data")
+
+
+def test_csv_import_safety_rejects_bad_inputs():
+    tool = CsvImportTool()
+    assert "错误" in tool.execute(file_path="missing.csv", table_name="ok_table", if_exists="drop")
+    assert "错误" in tool.execute(file_path="missing.csv", table_name="bad-name")
+    assert "不合法" in tool.execute(file_path="../README.md", table_name="ok_table")
+    print("  OK  csv import rejects unsafe inputs")
+
+
+def test_path_name_helpers():
+    assert normalize_project_name(" 销售-项目 1 ") == "销售_项目_1"
+    assert table_name_from_filename("2024 sales-report.csv") == "table_2024_sales_report"
+    print("  OK  path/name helpers")
 
 
 if __name__ == "__main__":

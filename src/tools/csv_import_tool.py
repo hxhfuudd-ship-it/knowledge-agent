@@ -1,9 +1,9 @@
 """CSV 导入工具：将 CSV 文件导入 SQLite 数据库"""
-import re
 import logging
 from pathlib import Path
 from .base import Tool
 from .. import config
+from ..path_utils import is_sql_identifier, resolve_under
 
 logger = logging.getLogger(__name__)
 
@@ -38,13 +38,16 @@ class CsvImportTool(Tool):
     }
 
     def execute(self, file_path: str, table_name: str, if_exists: str = "replace") -> str:
-        if not re.match(r'^[a-zA-Z_][a-zA-Z0-9_]*$', table_name):
+        if if_exists not in {"replace", "append"}:
+            return "错误：if_exists 只支持 replace 或 append"
+        if not is_sql_identifier(table_name):
             return "错误：表名只允许字母、数字和下划线，且不能以数字开头"
 
-        filepath = (ALLOWED_DIR / file_path).resolve()
-        if not str(filepath).startswith(str(ALLOWED_DIR.resolve())):
+        try:
+            filepath = resolve_under(ALLOWED_DIR, file_path)
+        except ValueError:
             return "错误：文件路径不合法"
-        if not filepath.exists():
+        if not filepath.exists() or not filepath.is_file():
             return "文件不存在: %s" % file_path
         if not filepath.suffix.lower() == ".csv":
             return "错误：只支持 CSV 文件"
@@ -54,7 +57,7 @@ class CsvImportTool(Tool):
         except ImportError:
             return "错误：需要安装 pandas: pip install pandas"
 
-        db_path = _project_root / config.get("database.path", "data/sample.db")
+        db_path = _project_root / config.get("database.path", "data/databases/default.db")
 
         try:
             df = pd.read_csv(str(filepath))
