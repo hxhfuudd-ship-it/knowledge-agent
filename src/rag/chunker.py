@@ -1,4 +1,5 @@
 """文本切片器：将长文档切分为适合 Embedding 的小块"""
+import hashlib
 import re
 from typing import List
 from .loader import Document
@@ -21,7 +22,7 @@ class TextChunker:
         chunks = []
         for doc in documents:
             chunks.extend(fn(doc))
-        return chunks
+        return self._finalize_chunks(chunks)
 
     def _fixed_chunk(self, doc: Document) -> List[Document]:
         """固定大小切片，带重叠"""
@@ -33,7 +34,7 @@ class TextChunker:
             end = start + self.chunk_size
             chunk_text = text[start:end]
             if chunk_text.strip():
-                meta = {**doc.metadata, "chunk_index": idx, "chunk_strategy": "fixed"}
+                meta = {**doc.metadata, "chunk_index": idx, "chunk_strategy": "fixed", "start_char": start, "end_char": end}
                 chunks.append(Document(content=chunk_text, metadata=meta))
                 idx += 1
             start = end - self.chunk_overlap
@@ -100,7 +101,7 @@ class TextChunker:
             if re.match(r"^#{1,3}\s+", section):
                 if current_text.strip():
                     text = (current_heading + "\n" + current_text).strip()
-                    for sub_chunk in self._ensure_size(text, idx, doc.metadata):
+                    for sub_chunk in self._ensure_size(text, idx, doc.metadata, current_heading):
                         chunks.append(sub_chunk)
                         idx += 1
                 current_heading = section.strip()
@@ -110,15 +111,41 @@ class TextChunker:
 
         if current_text.strip():
             text = (current_heading + "\n" + current_text).strip()
-            for sub_chunk in self._ensure_size(text, idx, doc.metadata):
+            for sub_chunk in self._ensure_size(text, idx, doc.metadata, current_heading):
                 chunks.append(sub_chunk)
 
         return chunks if chunks else self._recursive_chunk(doc)
 
-    def _ensure_size(self, text: str, idx: int, metadata: dict) -> List[Document]:
+    def _ensure_size(self, text: str, idx: int, metadata: dict, heading: str = "") -> List[Document]:
+        section = heading.lstrip("#").strip()
         if len(text) <= self.chunk_size:
             return [Document(
                 content=text,
-                metadata={**metadata, "chunk_index": idx, "chunk_strategy": "semantic"},
+                metadata={**metadata, "chunk_index": idx, "chunk_strategy": "semantic", "section": section},
             )]
-        return self._fixed_chunk(Document(content=text, metadata=metadata))
+        return self._fixed_chunk(Document(content=text, metadata={**metadata, "section": section}))
+
+    @staticmethod
+    def _finalize_chunks(chunks: List[Document]) -> List[Document]:
+        finalized = []
+        for global_index, chunk in enumerate(chunks):
+            content = chunk.content.strip()
+            if not content:
+                continue
+
+            source = chunk.metadata.get("source") or chunk.metadata.get("filename") or "unknown"
+            filename = chunk.metadata.get("filename") or str(source).split("/")[-1]
+            chunk_hash = hashlib.sha1(content.encode("utf-8")).hexdigest()[:12]
+            chunk_id = "%s:%s:%s" % (filename, chunk.metadata.get("chunk_index", global_index), chunk_hash)
+            citation = "%s#%s" % (filename, chunk_id)
+            metadata = {
+                **chunk.metadata,
+                "filename": filename,
+                "chunk_id": chunk_id,
+                "chunk_hash": chunk_hash,
+                "global_chunk_index": global_index,
+                "citation": citation,
+                "content_chars": len(content),
+            }
+            finalized.append(Document(content=content, metadata=metadata))
+        return finalized

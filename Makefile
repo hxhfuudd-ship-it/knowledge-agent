@@ -1,7 +1,7 @@
 PYTHON ?= python3
 export PYTHONPYCACHEPREFIX ?= /tmp/knowledge-agent-pyc
 
-.PHONY: compile lint test test-embedding doctor init-db run-app benchmark benchmark-live harness harness-live rag-eval check
+.PHONY: compile lint test test-embedding doctor init-db run-app benchmark benchmark-live harness harness-live rag-eval rag-response-eval check
 
 compile:
 	$(PYTHON) -m compileall -q src tests app.py import_csv.py mcp_servers data/init_db.py
@@ -38,5 +38,8 @@ harness-live:
 
 rag-eval:
 	$(PYTHON) -m src.eval.rag_eval --output data/rag_eval_report.md
+
+rag-response-eval:
+	$(PYTHON) -m src.eval.rag_response_eval --output data/rag_response_eval_report.md
 
 check: lint test

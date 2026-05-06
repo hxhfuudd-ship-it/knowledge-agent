@@ -12,6 +12,7 @@ from src.rag.chunker import TextChunker
 from src.rag.vector_store import SimpleVectorStore
 from src.rag.embedder import Embedder
 from src.rag.retriever import Retriever
+from src.rag.rag_tool import RAGSearchTool
 
 
 def _with_hash_fallback(fn):
@@ -44,6 +45,25 @@ def test_chunker_recursive():
     chunks = chunker.chunk([doc], strategy="recursive")
     assert len(chunks) >= 1
     print("  OK  chunker recursive strategy (%d chunks)" % len(chunks))
+
+
+def test_chunker_adds_standard_metadata():
+    chunker = TextChunker(chunk_size=100, chunk_overlap=10)
+    doc = Document(
+        content="# 业务规则\n\n### GMV\nGMV = 已完成订单 total_amount 之和。",
+        metadata={"source": "data/documents/business_rules.md", "filename": "business_rules.md"},
+    )
+    chunks = chunker.chunk([doc], strategy="semantic")
+
+    assert chunks
+    meta = chunks[0].metadata
+    assert meta["filename"] == "business_rules.md"
+    assert meta["chunk_id"].startswith("business_rules.md:")
+    assert meta["chunk_hash"]
+    assert meta["citation"].startswith("business_rules.md#")
+    assert meta["section"] in ("业务规则", "GMV")
+    assert meta["content_chars"] == len(chunks[0].content)
+    print("  OK  chunker adds chunk_id/citation metadata")
 
 
 def test_vector_store():
@@ -115,6 +135,54 @@ def test_hybrid_search_preserves_bm25_metadata():
     results = retriever.search_hybrid("orders 订单表字段", top_k=1)
     assert results[0][2]["filename"] == "data_dictionary.py"
     print("  OK  hybrid search preserves BM25 metadata")
+
+
+def test_rag_search_tool_outputs_citations():
+    class FakeRetriever:
+        def search_hybrid(self, query, top_k=6):
+            return [
+                (
+                    "GMV = SUM(已完成订单的 total_amount)",
+                    0.91,
+                    {
+                        "filename": "business_rules.md",
+                        "chunk_id": "business_rules.md:0:abc123",
+                        "section": "GMV（成交总额）",
+                        "citation": "business_rules.md#business_rules.md:0:abc123",
+                    },
+                )
+            ]
+
+        def ensure_bm25_index(self):
+            return None
+
+        @property
+        def collection(self):
+            return type("Collection", (), {"count": lambda self: 1})()
+
+    tool = RAGSearchTool()
+    tool.retriever = FakeRetriever()
+    tool.reranker = type("FakeReranker", (), {"rerank": lambda self, query, docs, top_k=3: docs[:top_k]})()
+    tool._indexed = True
+    tool._index_signature = tool._build_index_signature()
+
+    output = tool.execute("GMV 是什么？", top_k=1)
+
+    assert "source=business_rules.md" in output
+    assert "chunk_id=business_rules.md:0:abc123" in output
+    assert "citation=business_rules.md#business_rules.md:0:abc123" in output
+    print("  OK  rag search tool outputs citation-ready snippets")
+
+
+def test_rag_index_signature_tracks_schema_and_config():
+    signature = RAGSearchTool._build_index_signature()
+
+    assert signature["schema_version"] >= 2
+    assert signature["chunk_strategy"] == "semantic"
+    assert "chunk_size" in signature
+    assert "embedding_model" in signature
+    assert "documents" in signature
+    print("  OK  rag index signature tracks schema/config/documents")
 
 
 def test_embedder_backend():

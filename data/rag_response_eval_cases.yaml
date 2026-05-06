@@ -1,0 +1,15 @@
+cases:
+  - name: "gmv_grounded_answer"
+    query: "GMV 是怎么计算的？"
+    expected_keywords: ["GMV", "已完成订单", "total_amount"]
+    response: "GMV = SUM(已完成订单的 total_amount)，只统计已完成订单。citation: business_rules.md#business_rules.md:2:0e633d06768b"
+
+  - name: "repurchase_grounded_answer"
+    query: "复购率是怎么计算的？"
+    expected_keywords: ["复购率", "2笔", "已完成订单"]
+    response: "复购率 = 有2笔及以上已完成订单的客户数 / 有已完成订单的客户数。citation: business_rules.md#business_rules.md:5:112196688a1f"
+
+  - name: "orders_schema_grounded_answer"
+    query: "orders 订单表有哪些字段？"
+    expected_keywords: ["orders", "customer_id", "total_amount", "status"]
+    response: "orders 表字段包括 id、customer_id、order_date、total_amount、status。citation: data_dictionary.py#data_dictionary.py:6:e01078a0d0e6"

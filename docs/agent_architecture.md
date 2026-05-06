@@ -101,9 +101,11 @@ Tool 是“能做什么”，Skill 是“如何组织一组工具完成某类任
 - 向量存储。
 - 向量检索 + BM25 混合检索。
 - 重排序。
+- 为 chunk 生成稳定 `chunk_id`、`chunk_hash`、`section` 和 `citation`。
+- 检索结果带 source、score、chunk_id、citation，便于 Agent 基于证据回答。
 - 作为工具暴露给 Agent。
 
-标准 RAG 项目需要关注索引生命周期：文档变更后要能重建或增量更新。本项目使用 manifest 记录文档签名，避免旧索引长期失效。
+标准 RAG 项目需要关注索引生命周期、引用来源和评估：文档变更后要能重建或增量更新；chunk schema、chunk 配置或 embedding 模型变化后也要避免复用旧索引；回答要能追溯到检索片段；评估要同时看命中率、召回率、上下文精度和关键词覆盖。本项目使用 manifest 记录 schema version、chunk 配置、embedding 模型和文档签名，避免旧索引长期失效。
 
 ## 7. Memory
 

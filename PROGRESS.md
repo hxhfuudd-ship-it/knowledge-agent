@@ -384,3 +384,13 @@
 6. `src/harness/cli.py` 的报告增加 run_id、状态、目标、成功标准、trajectory 和违规原因，方便学习和面试演示
 7. `tests/test_harness.py` 增加禁止工具、工具顺序和工具次数违规回归测试，确保 harness 能抓到“不规范完成路径”
 8. README、docs 和 my_own_learning 文档同步说明标准 harness 的定位：可复现执行、边界约束、过程可观察、结果可验证
+
+### Day 14 — 标准 RAG 引用与评估增强
+
+1. `TextChunker` 为每个 chunk 补充稳定 `chunk_id`、`chunk_hash`、`global_chunk_index`、`section`、`citation` 和 `content_chars`
+2. `rag_search` 输出升级为 citation-ready snippets，包含 source、chunk_id、section、score、citation，方便 Agent 基于证据回答
+3. `src/eval/rag_eval.py` 增加 Source Recall@K、Context Precision@K、Keyword Coverage，并在报告中输出 retrieved chunk ids 和 citations
+4. RAG manifest 增加 schema version、chunk 配置、embedding 模型和文档签名，避免旧索引与新 chunk schema 不兼容
+5. 新增 `src/eval/rag_response_eval.py` 和 `data/rag_response_eval_cases.yaml`，把 response eval 与 retrieval eval 分离，离线评估 citation hit、faithfulness 和 coverage
+6. 新增 RAG 回归测试，覆盖 chunk metadata、citation-ready 输出、index signature、retrieval eval 和 response eval
+7. README、docs/development.md、docs/agent_architecture.md 和 my_own_learning 文档同步说明标准 RAG 的 chunk metadata、citation、index manifest、retrieval eval 和 response eval 指标

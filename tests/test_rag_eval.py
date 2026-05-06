@@ -20,8 +20,13 @@ def test_rag_eval_offline_retriever_runs():
     results = evaluate_cases(cases, retriever, top_k=3)
     assert results["total"] == 2
     assert "source_hit_at_k" in results
+    assert "source_recall_at_k" in results
+    assert "context_precision_at_k" in results
+    assert "keyword_coverage" in results
     assert "mrr" in results
     assert results["details"][0]["retrieved_sources"]
+    assert results["details"][0]["retrieved_chunk_ids"]
+    assert results["details"][0]["retrieved_citations"]
     print("  OK  rag eval offline retriever runs")
 
 
@@ -31,5 +36,8 @@ def test_rag_eval_current_cases_pass():
     results = evaluate_cases(cases, retriever, top_k=3)
     assert results["failed"] == 0
     assert results["source_hit_at_k"] == 1.0
+    assert results["source_recall_at_k"] >= 0.75
+    assert results["context_precision_at_k"] >= 0.75
+    assert results["keyword_coverage"] == 1.0
     assert results["mrr"] == 1.0
     print("  OK  rag eval current cases pass")

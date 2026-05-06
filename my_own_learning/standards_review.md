@@ -133,14 +133,18 @@
 
 - 有 loader、chunker、embedder、vector store、BM25、reranker、manifest。
 - RAG 是轻量自研版，适合学习。
-- 新增 `data/rag_eval_cases.yaml` 和 `src/eval/rag_eval.py`，可离线输出 Source Hit@K、Keyword Hit Rate、MRR。
+- chunk metadata 已包含稳定 `chunk_id`、`chunk_hash`、`section`、`citation`，便于引用、去重和评估。
+- `rag_search` 输出 source、chunk_id、section、score 和 citation，Agent 可以基于片段回答并保留来源。
+- manifest 记录 schema version、chunk 配置、embedding 模型和文档签名，避免 chunk schema 或配置变化后复用旧索引。
+- 新增 `data/rag_eval_cases.yaml` 和 `src/eval/rag_eval.py`，可离线输出 Source Hit@K、Source Recall@K、Context Precision@K、Keyword Coverage、MRR。
+- 新增 `data/rag_response_eval_cases.yaml` 和 `src/eval/rag_response_eval.py`，可离线输出 citation hit、faithfulness 和 coverage，判断最终回答是否基于检索上下文。
 - RAG 索引和离线评估默认使用 semantic chunk，更适合保留指标定义、表结构和标题语义。
 - Retriever 修复了 BM25 结果元数据保留，并增加轻量 lexical score，提升表名/字段名这类精确查询。
 
 判断：
 
-- 当前 RAG 原理链路清晰，已具备基础检索评估能力。
-- 下一步可以补更强的 citation、metadata filter、query rewrite 和 answer faithfulness 评估。
+- 当前 RAG 原理链路清晰，已具备标准学习项目需要的检索、引用和检索评估能力。
+- 下一步可以补 metadata filter 和 query rewrite。
 
 ## 7. Observability / Trace
 

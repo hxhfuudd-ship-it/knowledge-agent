@@ -14,6 +14,7 @@ logger = logging.getLogger(__name__)
 
 DOCS_DIR = Path(__file__).parent.parent.parent / "data" / "documents"
 MANIFEST_PATH = Path(__file__).parent.parent.parent / "data" / "vector_store_manifest.json"
+INDEX_SCHEMA_VERSION = 2
 
 _shared_retriever = None
 
@@ -29,7 +30,8 @@ class RAGSearchTool(Tool):
     name = "rag_search"
     description = (
         "从知识库中语义检索相关文档。适用于查找数据字典、业务规则、分析方法等知识。"
-        "输入自然语言查询，返回最相关的文档片段。"
+        "输入自然语言查询，返回带 source/chunk_id/citation 的相关文档片段。"
+        "回答知识库问题时应基于这些片段，并在结论后标注引用。"
     )
     parameters = {
         "type": "object",
@@ -72,23 +74,37 @@ class RAGSearchTool(Tool):
         return signature
 
     @staticmethod
+    def _build_index_signature() -> dict:
+        return {
+            "schema_version": INDEX_SCHEMA_VERSION,
+            "chunk_strategy": "semantic",
+            "chunk_size": config.get("rag.chunk_size", 512),
+            "chunk_overlap": config.get("rag.chunk_overlap", 50),
+            "embedding_model": config.get("rag.embedding_model", "chinese"),
+            "documents": RAGSearchTool._docs_signature(),
+        }
+
+    @staticmethod
     def _load_manifest():
         if not MANIFEST_PATH.exists():
             return None
         try:
             with open(MANIFEST_PATH, "r", encoding="utf-8") as f:
-                return json.load(f).get("documents")
+                data = json.load(f)
+            if "schema_version" in data:
+                return data
+            return {"schema_version": 1, "documents": data.get("documents")}
         except (json.JSONDecodeError, IOError):
             return None
 
     @staticmethod
-    def _save_manifest(signature: List[dict]):
+    def _save_manifest(signature: dict):
         MANIFEST_PATH.parent.mkdir(parents=True, exist_ok=True)
         with open(MANIFEST_PATH, "w", encoding="utf-8") as f:
-            json.dump({"documents": signature}, f, ensure_ascii=False, indent=2)
+            json.dump(signature, f, ensure_ascii=False, indent=2)
 
     def ensure_indexed(self):
-        signature = self._docs_signature()
+        signature = self._build_index_signature()
         if self._indexed and self._index_signature == signature:
             self.retriever.ensure_bm25_index()
             return
@@ -126,10 +142,16 @@ class RAGSearchTool(Tool):
 
         reranked = self.reranker.rerank(query, results, top_k=top_k)
 
-        output = []
+        output = ["RAG 检索结果（请基于片段回答，并保留 citation）："]
         for i, (doc, score, meta) in enumerate(reranked, 1):
             source = meta.get("filename", "unknown")
-            output.append("[%d] (来源: %s, 相关度: %.2f)\n%s\n" % (i, source, score, doc))
+            chunk_id = meta.get("chunk_id", "unknown")
+            section = meta.get("section", "")
+            citation = meta.get("citation", "%s#%s" % (source, chunk_id))
+            heading = "[%d] source=%s chunk_id=%s score=%.2f citation=%s" % (i, source, chunk_id, score, citation)
+            if section:
+                heading += " section=%s" % section
+            output.append("%s\n%s\n" % (heading, doc))
 
         return "\n---\n".join(output)
 

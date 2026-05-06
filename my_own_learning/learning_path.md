@@ -103,15 +103,21 @@ make run-app
 
 - 文档如何加载。
 - chunk 为什么影响检索质量。
+- `chunk_id`、`chunk_hash`、`section`、`citation` 为什么是标准 RAG 的关键 metadata。
 - Embedding 为什么有真实模型和 hash fallback。
 - 向量检索和 BM25 各自擅长什么。
 - manifest 如何解决索引过期问题。
-- RAG Tool 如何把检索能力暴露给 Agent。
+- RAG Tool 如何把带来源的检索片段暴露给 Agent。
+- Source Hit@K、Source Recall@K、Context Precision@K、Keyword Coverage、MRR 分别衡量什么。
+- response eval 为什么要和 retrieval eval 分开。
+- citation hit、faithfulness、coverage 分别衡量什么。
 
 要能回答：
 
 - RAG 为什么不是“把文档塞进 prompt”？
 - 什么情况下 BM25 比向量检索更有用？
+- 为什么 RAG 回答需要 citation？
+- Retrieval eval 和 response eval 有什么区别？
 - 真实 Embedding 为什么不放进默认 CI？
 
 练习：
@@ -119,6 +125,8 @@ make run-app
 - 增加一篇知识库文档。
 - 运行 RAG 索引。
 - 用 UI 或测试验证新内容能被检索到。
+- 跑 `make rag-eval`，观察 citation、context precision 和 MRR。
+- 跑 `make rag-response-eval`，观察 citation hit、faithfulness 和 coverage。
 
 ## 阶段 5：理解 Skills
 

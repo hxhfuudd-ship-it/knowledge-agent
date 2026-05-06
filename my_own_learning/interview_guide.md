@@ -68,12 +68,14 @@
 
 面试表达：
 
-> 项目的 RAG 包含 loader、chunker、embedder、vector store、BM25、reranker 和索引 manifest。向量检索解决语义相似，BM25 补关键词匹配，manifest 解决文档变化后索引过期的问题。
+> 项目的 RAG 包含 loader、semantic chunker、embedder、vector store、BM25、hybrid retriever、reranker 和索引 manifest。每个 chunk 都有稳定 chunk_id、section、chunk_hash 和 citation；检索输出包含 source、score、chunk_id 和 citation，方便 Agent 基于证据回答。评估侧我把 retrieval eval 和 response eval 分开：前者看 Source Hit@K、Source Recall@K、Context Precision@K、Keyword Coverage 和 MRR，后者看 citation hit、faithfulness 和 coverage，判断最终回答是不是基于检索上下文。
 
 对应源码：
 
 - `src/rag/`
 - `src/rag/retriever.py`
+- `src/eval/rag_eval.py`
+- `src/eval/rag_response_eval.py`
 - `src/rag/rag_tool.py`
 
 ### 4. 可观测性和评估

@@ -176,12 +176,16 @@ RAG 模块拆分如下：
 开发注意事项：
 
 - 文档变更后要考虑索引重建或增量更新。
+- 索引 manifest 不只记录文档签名，也应记录 schema version、chunk 配置和 embedding 模型，避免旧索引与新代码不兼容。
 - 默认测试不能下载真实模型。
 - 真实 Embedding 测试必须显式开启。
 - 检索结果应包含 source、chunk id、score 等可解释信息。
+- 每个 chunk 应有稳定 `chunk_id`、`chunk_hash`、`section`、`citation`，便于引用、去重和评估。
 - RAG Tool 输出应尽量结构化，便于 UI 展示和测试断言。
 - 结构化文档优先使用 semantic chunk，保留标题、表结构和指标定义边界。
-- RAG 改动后建议运行 `make rag-eval`，观察 Source Hit@K、Keyword Hit Rate、MRR 是否变化。
+- RAG Tool 给 Agent 的片段应包含 citation，回答知识库问题时应尽量基于片段并标注来源。
+- RAG 改动后建议运行 `make rag-eval`，观察 Source Hit@K、Source Recall@K、Context Precision@K、Keyword Coverage、MRR 是否变化。
+- 如果改动影响最终回答，建议再运行 `make rag-response-eval`，观察 citation hit、faithfulness 和 coverage 是否变化。
 
 ## 8. 新增 LLM Provider
 
