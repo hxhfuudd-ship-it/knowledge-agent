@@ -160,12 +160,12 @@ MCP 的价值是让 Agent 可以接入更多外部系统，同时保持工具发
 
 职责：
 
-- 把 Agent 输入、输出、工具轨迹、skill、trace、耗时统一收集。
+- 把任务目标、成功标准、执行边界、Agent 输入、最终输出、工具轨迹、artifact、skill、trace、耗时统一收集。
 - 支持 dry-run 脚本化 LLM，保证不依赖真实模型也能验证 Agent loop。
 - 支持 live 模式，用真实 Agent / LLM 跑端到端场景。
-- 校验工具调用、关键词、来源和 skill，作为 demo、回归和评估的共同入口。
+- 校验必须工具、禁止工具、工具顺序、工具次数、关键词、来源、skill、artifact 和耗时边界，作为 demo、回归和评估的共同入口。
 
-标准 Agent 项目通常需要这样的 harness：否则只能靠人工试问，无法稳定复现和观察 Agent 行为。
+标准 Agent 项目通常需要这样的 harness：否则只能靠人工试问，无法稳定复现“Agent 是否按正确路径把任务完成”。OpenAI Agents SDK、LangSmith/AgentEvals、Google ADK 等体系都会强调 run/trace、trajectory 和最终结果校验；本项目用轻量自研方式保留这些核心思想。
 
 ## 12. Production Checklist
 

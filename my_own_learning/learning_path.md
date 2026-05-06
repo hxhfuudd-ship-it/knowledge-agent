@@ -223,7 +223,7 @@ make run-app
 重点理解：
 
 - Agent 为什么需要 benchmark。
-- Harness 如何标准化运行 Agent 并收集工具轨迹。
+- Harness 如何用目标、成功标准、执行边界和工具轨迹验证 Agent 是否真的完成任务。
 - dry-run 和 live benchmark 的区别。
 - trace 如何帮助定位工具调用、成本和延迟问题。
 - CI 为什么默认不跑真实模型。
@@ -238,7 +238,7 @@ make run-app
 练习：
 
 - 新增一个 benchmark case。
-- 新增一个 harness case。
+- 新增一个 harness case，写清楚 `goal`、`success_criteria`、`limits`、`expect.ordered_tools` 和 `expect.forbidden_tools`。
 - 跑 `make harness`。
 - 跑 `make rag-eval`。
 - 跑 `make benchmark`。

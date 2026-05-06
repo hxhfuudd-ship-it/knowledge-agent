@@ -26,14 +26,25 @@ def _to_markdown(results) -> str:
     for item in results.get("details", []):
         status = "PASS" if item.get("passed") else "FAIL"
         lines.append("### [%s] %s" % (status, item.get("name", "unnamed")))
+        lines.append("- Run ID: `%s`" % item.get("run_id", ""))
         lines.append("- Category: `%s`" % item.get("category", "general"))
         lines.append("- Mode: `%s`" % item.get("mode", "dry"))
+        lines.append("- Status: `%s`" % item.get("status", ""))
         lines.append("- Query: %s" % item.get("query", ""))
+        if item.get("goal"):
+            lines.append("- Goal: %s" % item["goal"])
+        if item.get("success_criteria"):
+            lines.append("- Success Criteria: %s" % "；".join(item["success_criteria"]))
         if item.get("tools_used"):
             lines.append("- Tools: %s" % ", ".join(item["tools_used"]))
+        if item.get("trajectory"):
+            trajectory = " -> ".join(step.get("tool", "") for step in item["trajectory"])
+            lines.append("- Trajectory: %s" % trajectory)
         if item.get("checks"):
             checks = ", ".join("%s=%s" % (key, value) for key, value in item["checks"].items())
             lines.append("- Checks: %s" % checks)
+        if item.get("violations"):
+            lines.append("- Violations: %s" % "；".join(item["violations"]))
         if item.get("latency_ms") is not None:
             lines.append("- Latency: %.1fms" % item.get("latency_ms", 0))
         if item.get("error"):
@@ -73,4 +84,3 @@ def main() -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
-

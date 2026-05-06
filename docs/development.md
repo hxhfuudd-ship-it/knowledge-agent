@@ -78,7 +78,7 @@ make doctor
 | `make test-embedding` | 真实 Embedding 集成测试 | 是 |
 | `make benchmark` | dry-run 评估用例结构并生成报告 | 否 |
 | `make benchmark-live` | 使用真实 Agent/LLM 跑评估 | 是 |
-| `make harness` | 使用脚本化 LLM 跑标准 harness 场景，收集工具轨迹和 trace | 否 |
+| `make harness` | 使用脚本化 LLM 跑标准 harness 任务，验证目标、轨迹和边界 | 否 |
 | `make harness-live` | 使用真实 Agent/LLM 跑 harness 场景 | 是 |
 | `make rag-eval` | 离线评估 RAG 检索质量并生成报告 | 否 |
 
@@ -266,12 +266,17 @@ RAG eval 关注检索阶段质量，和 Agent benchmark 分开：
 - `src/harness/`
 - `data/harness_cases.yaml`
 
-Harness 是 Agent 的标准运行外壳，主要职责是：
+Harness 是 Agent 的标准运行外壳，不只是“跑几个样例”。它要回答的是：
+
+> 给定任务目标、约束和成功标准，Agent 是否能稳定、可复现、可观察地把任务完成？
+
+主要职责是：
 
 - 统一加载测试/演示场景。
-- 统一运行 Agent。
-- 统一收集最终回答、工具调用、skill、trace、耗时。
-- 统一校验预期工具、关键词、来源和 skill。
+- 统一运行 Agent，并限制最大循环、工具调用次数和耗时。
+- 统一收集最终回答、工具调用、trajectory、artifact、skill、trace、耗时。
+- 统一校验预期工具、禁止工具、工具顺序、关键词、来源、skill 和 artifact。
+- 输出结构化 run record，包含 `run_id`、状态、检查项和违规原因。
 - 支持 dry-run 和 live 两种模式。
 
 dry-run 使用脚本化 LLM，不请求真实模型，但仍然会走 Agent 的 tool-call loop，所以适合 CI、教学和演示回归。
@@ -282,18 +287,42 @@ Harness、Eval、Tests 的边界：
 
 | 模块 | 关注点 |
 |---|---|
-| Harness | 如何标准化运行 Agent 并收集过程 |
+| Harness | 如何标准化运行、约束并验证 Agent 任务过程 |
 | Eval / Benchmark | 如何给结果打分和生成报告 |
 | Tests | 如何自动断言核心功能不退化 |
 
 新增 harness case 时，优先写清楚：
 
+- `goal`：这个任务到底要完成什么。
+- `success_criteria`：什么叫完成成功，尽量写成可观察条件。
+- `limits`：最大循环次数、工具调用次数和超时边界。
 - `query`：用户输入。
-- `expect.tools`：期望工具轨迹。
+- `expect.tools`：必须出现的工具。
+- `expect.ordered_tools`：期望工具顺序，例如先 RAG 再 SQL。
+- `expect.forbidden_tools`：这个任务不应该调用的工具。
 - `expect.keywords`：最终回答需要包含的关键内容。
 - `expect.sources`：RAG 场景期望出现的来源。
+- `expect.artifacts`：期望生成的交付物，例如图表路径。
 - `script.tool_calls`：dry-run 模式下脚本化 LLM 要触发的工具调用。
 - `script.final_response`：dry-run 模式下最终回答。
+
+一个标准 harness case 的心智模型是：
+
+```yaml
+goal: "Agent should retrieve metric definition, query data, then answer."
+success_criteria:
+  - "Uses rag_search before sql_query."
+  - "Final response contains the metric value."
+limits:
+  max_iterations: 3
+  min_tool_calls: 2
+  max_tool_calls: 2
+expect:
+  tools: ["rag_search", "sql_query"]
+  ordered_tools: ["rag_search", "sql_query"]
+  forbidden_tools: ["web_search"]
+  keywords: ["GMV"]
+```
 
 ## 13. 可观测性开发规范
 

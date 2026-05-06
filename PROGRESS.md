@@ -373,3 +373,14 @@
 3. 每个 SKILL.md 包含 name、description、version、tools、runtime_mapping、适用场景、工作流、工具规范、输出要求和示例问题
 4. 新增 tests/test_skill_files.py，校验 SKILL.md frontmatter 和运行时代码映射
 5. README、docs/agent_architecture.md、docs/development.md 和 my_own_learning/ 文档补充标准 Skills 文件系统说明
+
+### Day 13 — 任务级 Agent Harness 标准化
+
+1. 对照 OpenAI Agents SDK tracing、LangSmith/AgentEvals trajectory evaluation、Google ADK evaluation、LangGraph durable execution 等资料，重新明确 harness 职责：不是简单跑样例，而是验证 Agent 是否在目标、标准和边界内稳定完成任务
+2. `src/harness/models.py` 新增 `HarnessLimits`，并扩展 case/result：支持 `goal`、`success_criteria`、`run_id`、状态、时间戳、trajectory、artifact、违规原因
+3. `src/harness/validators.py` 增加必须工具、禁止工具、工具顺序、工具调用次数、artifact 和耗时边界校验
+4. `src/harness/runner.py` 生成结构化 run record，并让 dry-run/live 都遵守 case 的 `max_iterations`
+5. `data/harness_cases.yaml` 升级为任务级 case：每个场景都有目标、成功标准、执行限制、期望轨迹和禁止工具
+6. `src/harness/cli.py` 的报告增加 run_id、状态、目标、成功标准、trajectory 和违规原因，方便学习和面试演示
+7. `tests/test_harness.py` 增加禁止工具、工具顺序和工具次数违规回归测试，确保 harness 能抓到“不规范完成路径”
+8. README、docs 和 my_own_learning 文档同步说明标准 harness 的定位：可复现执行、边界约束、过程可观察、结果可验证

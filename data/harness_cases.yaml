@@ -2,9 +2,20 @@ cases:
   - name: "calculator_tool_trace"
     category: "tool_calling"
     description: "Dry-run case that exercises the Agent tool loop and trace capture."
+    goal: "Agent should compute arithmetic by selecting calculator and returning the numeric result."
+    success_criteria:
+      - "Uses only the calculator tool."
+      - "Final response contains the numeric result 579."
+    limits:
+      max_iterations: 3
+      min_tool_calls: 1
+      max_tool_calls: 1
+      timeout_ms: 3000
     query: "帮我计算 123 + 456"
     expect:
       tools: ["calculator"]
+      ordered_tools: ["calculator"]
+      forbidden_tools: ["sql_query", "rag_search", "create_chart"]
       keywords: ["579"]
     script:
       tool_calls:
@@ -16,9 +27,20 @@ cases:
   - name: "rag_business_rule_route"
     category: "rag"
     description: "Dry-run case that checks RAG tool routing and source-aware response text."
+    goal: "Agent should route a business-rule question to knowledge retrieval before answering."
+    success_criteria:
+      - "Uses rag_search to retrieve the metric definition."
+      - "Final response mentions 复购率."
+    limits:
+      max_iterations: 3
+      min_tool_calls: 1
+      max_tool_calls: 1
+      timeout_ms: 3000
     query: "复购率是怎么计算的？"
     expect:
       tools: ["rag_search"]
+      ordered_tools: ["rag_search"]
+      forbidden_tools: ["sql_query", "create_chart", "python_exec"]
       keywords: ["复购率"]
     script:
       tool_calls:
@@ -31,10 +53,23 @@ cases:
   - name: "sql_chart_analysis_route"
     category: "data_analysis"
     description: "Dry-run case that checks multi-tool trajectory for data analysis and chart generation."
+    goal: "Agent should query structured data first, then generate a chart artifact from the result."
+    success_criteria:
+      - "Uses sql_query before create_chart."
+      - "Final response says a bar chart was generated."
+      - "Run record contains the chart artifact."
+    limits:
+      max_iterations: 3
+      min_tool_calls: 2
+      max_tool_calls: 2
+      timeout_ms: 3000
     query: "帮我画个柱状图展示各部门人数"
     expect:
       tools: ["sql_query", "create_chart"]
+      ordered_tools: ["sql_query", "create_chart"]
+      forbidden_tools: ["rag_search", "web_search"]
       keywords: ["柱状图"]
+      artifacts: ["各部门人数.png"]
     script:
       tool_calls:
         - name: "sql_query"
@@ -47,5 +82,7 @@ cases:
               labels: ["技术部", "销售部", "市场部"]
               values: [3, 3, 2]
             title: "各部门人数"
+      tool_outputs:
+        sql_query: "技术部 3 人；销售部 3 人；市场部 2 人。"
+        create_chart: "data/charts/各部门人数.png"
       final_response: "已生成各部门人数柱状图，并可基于图表继续分析组织结构。"
-

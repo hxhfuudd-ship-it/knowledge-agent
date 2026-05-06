@@ -105,7 +105,7 @@
 
 面试表达：
 
-> 我新增了 Agent harness，用脚本化 LLM 稳定触发工具调用，统一收集最终回答、工具轨迹、skill、trace、耗时和校验结果。这样 demo、回归测试和评估可以共用一套标准运行外壳，而不是只靠手动试问。
+> 我新增了任务级 Agent harness，不只是跑样例，而是为每个任务定义 goal、success criteria、execution limits 和 expected trajectory。dry-run 用脚本化 LLM 稳定触发工具调用，离线校验必须工具、禁止工具、工具顺序、工具次数、关键词、artifact、trace 和违规原因；live 模式再接真实模型做端到端验收。这样 demo、回归测试和评估可以共用一套标准运行外壳，而不是只靠手动试问。
 
 对应源码：
 

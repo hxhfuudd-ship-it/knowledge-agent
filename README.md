@@ -180,14 +180,15 @@ make test-embedding
 
 ## Agent Harness
 
-Harness 是项目的标准运行外壳，用于把 Agent 输入、输出、工具调用轨迹、trace 和校验结果统一收集起来。
+Harness 是项目的标准运行外壳，用于验证 Agent 是否能在明确任务目标、成功标准和执行边界内，持续稳定、可复现地把事情做完。
 
 - `src/harness/`：Harness runner、结构化模型和校验器
-- `data/harness_cases.yaml`：标准 dry-run / live 场景
-- `make harness`：默认脚本化 dry-run，不调用真实 LLM，适合 CI 和演示回归
+- `data/harness_cases.yaml`：标准 task case，包含目标、成功标准、执行限制、期望工具轨迹和 dry-run script
+- `make harness`：默认脚本化 dry-run，不调用真实 LLM，适合 CI、教学和演示回归
 - `make harness-live`：调用真实 Agent / LLM，适合人工验收
+- 结果会记录 `run_id`、状态、最终回答、工具轨迹、artifact、trace、耗时、检查项和违规原因
 
-它和 benchmark 的区别是：Harness 负责“如何标准化运行并收集过程”，Benchmark/Eval 负责“如何评分和生成评估报告”。
+它和 benchmark 的区别是：Harness 负责“如何标准化运行、约束并验证任务过程”，Benchmark/Eval 负责“如何评分和生成质量报告”。
 
 ## RAG Eval
 

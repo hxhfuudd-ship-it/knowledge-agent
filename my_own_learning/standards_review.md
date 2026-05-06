@@ -8,6 +8,8 @@
 - Agent Skills Specification：<https://agentskills.io/specification>
 - Anthropic Agent Skills Docs：<https://docs.claude.com/en/docs/agents-and-tools/agent-skills>
 - LangSmith / AgentEvals Trajectory Evaluation：<https://docs.langchain.com/langsmith/trajectory-evals>
+- Google ADK Evaluation：<https://google.github.io/adk-docs/evaluate/>
+- LangGraph Durable Execution：<https://docs.langchain.com/oss/python/langgraph/durable-execution>
 - LlamaIndex Evaluation：<https://docs.llamaindex.ai/en/stable/module_guides/evaluating/>
 - LlamaIndex Retrieval Evaluation：<https://docs.llamaindex.ai/en/stable/examples/evaluation/retrieval/retriever_eval/>
 
@@ -76,8 +78,10 @@
 
 标准做法：
 
-- Harness 是标准运行外壳，负责稳定运行 Agent case，并收集过程数据。
-- 它应该记录输入、输出、工具轨迹、trace、耗时、校验结果。
+- Harness 是标准运行外壳，负责稳定运行 Agent task，并收集过程数据。
+- 它应该定义任务目标、成功标准和执行边界，而不只是保存几个 prompt 样例。
+- 它应该记录输入、输出、工具 trajectory、artifact、trace、耗时、校验结果和违规原因。
+- 它应该同时验证 final response 和 trajectory，例如是否先检索业务规则、再查数据库、最后生成图表。
 - dry-run 应该离线稳定，不依赖真实 LLM、真实 Embedding 或外部网络。
 - live-run 才调用真实 Agent / LLM。
 
@@ -87,11 +91,14 @@
 - 新增 `data/harness_cases.yaml`。
 - 新增 `make harness` 和 `make harness-live`。
 - dry-run 使用 `ScriptedLLM` 和 `ScriptedTool`，稳定触发 tool-call loop，但不执行真实工具副作用。
-- harness 会校验工具轨迹、关键词、来源和 skill。
+- harness case 已包含 `goal`、`success_criteria`、`limits`、`expect` 和 `script`。
+- harness 会校验必须工具、禁止工具、工具顺序、工具调用次数、关键词、来源、skill、artifact 和耗时。
+- harness result 会记录 `run_id`、状态、trajectory、trace、检查项和违规原因。
 
 判断：
 
 - 这个设计符合学习型 Agent 项目的标准做法。
+- 它不是生产级调度器，也不负责真正的持久化恢复；如果后续要做长任务和断点恢复，可以参考 LangGraph durable execution。
 - 重点修正点：dry-run 必须不触发真实 RAG / Embedding，这一点已经通过脚本化工具解决。
 
 ## 5. Evaluation / Benchmark
