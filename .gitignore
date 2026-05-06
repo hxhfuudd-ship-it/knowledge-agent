@@ -20,6 +20,7 @@ data/databases/*.db
 data/finetune_data.jsonl
 data/benchmark_report.md
 data/harness_report.md
+data/rag_eval_report.md
 data/charts/
 
 # Models (large, download locally)

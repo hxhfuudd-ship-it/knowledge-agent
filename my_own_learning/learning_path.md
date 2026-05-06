@@ -209,8 +209,10 @@ make run-app
 
 - `src/eval/benchmark.py`
 - `src/eval/metrics.py`
+- `src/eval/rag_eval.py`
 - `src/harness/`
 - `data/harness_cases.yaml`
+- `data/rag_eval_cases.yaml`
 - `src/observability.py`
 - `src/doctor.py`
 - `Makefile`
@@ -236,6 +238,7 @@ make run-app
 - 新增一个 benchmark case。
 - 新增一个 harness case。
 - 跑 `make harness`。
+- 跑 `make rag-eval`。
 - 跑 `make benchmark`。
 - 在 UI 里观察一次完整 trace。
 

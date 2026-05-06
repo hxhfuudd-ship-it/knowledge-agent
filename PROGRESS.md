@@ -349,3 +349,11 @@
 6. README、docs/development.md、docs/agent_architecture.md 和 my_own_learning/ 学习资料补充 Harness、Eval、Tests 的职责边界
 7. 新增 my_own_learning/standards_review.md，对照 OpenAI Agents SDK、Agent Skills、LangSmith、LlamaIndex 等资料说明当前项目规范性和后续补强路线
 8. 安装 security-best-practices、security-threat-model 两个 Codex skills，后续重启 Codex 后可用于继续审查 Agent 工具权限和威胁模型
+
+### Day 10 — RAG Eval 检索评估补齐
+
+1. 新增 data/rag_eval_cases.yaml，定义 GMV、复购率、订单表结构、部门职责等检索评估用例
+2. 新增 src/eval/rag_eval.py，离线构建 retriever 并输出 Source Hit@K、Keyword Hit Rate、MRR 和明细报告
+3. 新增 tests/test_rag_eval.py，验证 RAG eval 用例加载和离线 retriever 可运行
+4. Makefile 增加 make rag-eval，生成 data/rag_eval_report.md；默认只报告指标，不阻塞质量门禁
+5. README、docs/development.md 和 my_own_learning/ 文档补充 RAG eval 的定位、指标和使用方式

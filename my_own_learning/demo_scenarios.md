@@ -10,6 +10,7 @@ make init-db
 make doctor
 make check
 make harness
+make rag-eval
 make run-app
 ```
 
@@ -162,6 +163,7 @@ date,channel,revenue
 
 ```bash
 make harness
+make rag-eval
 make benchmark
 make check
 ```
@@ -169,6 +171,7 @@ make check
 期望结果：
 
 - `make harness` dry-run 通过，展示工具轨迹、trace 和校验结果。
+- `make rag-eval` 生成检索质量报告，展示 Source Hit@K、Keyword Hit Rate、MRR。
 - `make benchmark` dry-run 通过，不调用真实 LLM。
 - `make check` 通过 lint 和默认测试。
 

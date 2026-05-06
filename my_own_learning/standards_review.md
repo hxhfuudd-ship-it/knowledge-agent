@@ -123,12 +123,12 @@
 
 - 有 loader、chunker、embedder、vector store、BM25、reranker、manifest。
 - RAG 是轻量自研版，适合学习。
-- 目前缺少专门的 RAG eval dataset 和 hit@k / MRR 等指标。
+- 新增 `data/rag_eval_cases.yaml` 和 `src/eval/rag_eval.py`，可离线输出 Source Hit@K、Keyword Hit Rate、MRR。
 
 判断：
 
 - 当前 RAG 原理链路清晰，但质量评估还不够强。
-- 下一步最应该补：`data/rag_eval_cases.yaml` 和 `src/eval/rag_eval.py`。
+- 下一步可以补更强的 citation、metadata filter、query rewrite 和 answer faithfulness 评估。
 
 ## 7. Observability / Trace
 
@@ -180,7 +180,6 @@
 
 最值得继续补的三件事：
 
-1. RAG eval：补 hit@k / MRR / source match。
+1. RAG eval：扩大评估集，并区分 retrieval eval 和 response eval。
 2. Tool permissions：补工具风险等级和用户确认机制。
 3. Skills standardization：尝试把当前 `src/skills/` 映射到 `SKILL.md` 文件系统标准。
-

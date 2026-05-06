@@ -1,0 +1,21 @@
+cases:
+  - name: "gmv_definition"
+    query: "GMV 是怎么计算的？"
+    expected_sources: ["business_rules.md", "data_dictionary.py"]
+    expected_keywords: ["GMV", "已完成订单", "total_amount"]
+
+  - name: "repurchase_rate"
+    query: "复购率是怎么计算的？"
+    expected_sources: ["business_rules.md", "data_dictionary.py"]
+    expected_keywords: ["复购率", "2笔", "已完成订单"]
+
+  - name: "orders_schema"
+    query: "orders 订单表有哪些字段？"
+    expected_sources: ["data_dictionary.py"]
+    expected_keywords: ["orders", "customer_id", "total_amount", "status"]
+
+  - name: "department_responsibilities"
+    query: "销售部和技术部分别负责什么？"
+    expected_sources: ["business_rules.md"]
+    expected_keywords: ["销售部", "技术部"]
+

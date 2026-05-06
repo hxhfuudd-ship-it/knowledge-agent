@@ -80,6 +80,7 @@ make doctor
 | `make benchmark-live` | 使用真实 Agent/LLM 跑评估 | 是 |
 | `make harness` | 使用脚本化 LLM 跑标准 harness 场景，收集工具轨迹和 trace | 否 |
 | `make harness-live` | 使用真实 Agent/LLM 跑 harness 场景 | 是 |
+| `make rag-eval` | 离线评估 RAG 检索质量并生成报告 | 否 |
 
 ## 5. 新增 Tool
 
@@ -170,6 +171,7 @@ RAG 模块拆分如下：
 - 真实 Embedding 测试必须显式开启。
 - 检索结果应包含 source、chunk id、score 等可解释信息。
 - RAG Tool 输出应尽量结构化，便于 UI 展示和测试断言。
+- RAG 改动后建议运行 `make rag-eval`，观察 Source Hit@K、Keyword Hit Rate、MRR 是否变化。
 
 ## 8. 新增 LLM Provider
 
@@ -238,6 +240,14 @@ MCP Server 不应该默认拥有无限文件系统或数据库权限，应限制
 4. RAG 检索结构和 fallback。
 5. CLI 命令 dry-run。
 6. live 集成测试。
+
+RAG eval 关注检索阶段质量，和 Agent benchmark 分开：
+
+| 指标 | 含义 |
+|---|---|
+| Source Hit@K | top-k 检索结果是否命中预期来源 |
+| Keyword Hit Rate | 检索文本是否覆盖期望关键词 |
+| MRR | 预期来源第一次出现位置的倒数均值 |
 
 ## 12. Agent Harness
 
