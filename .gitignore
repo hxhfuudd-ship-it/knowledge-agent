@@ -19,11 +19,13 @@ data/episodic_memory.json
 data/databases/*.db
 data/finetune_data.jsonl
 data/benchmark_report.md
+data/harness_report.md
 data/charts/
 
 # Models (large, download locally)
 *.bin
 *.safetensors
+*.zip
 
 # IDE
 .vscode/

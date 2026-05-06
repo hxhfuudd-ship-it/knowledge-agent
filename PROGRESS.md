@@ -338,3 +338,14 @@
 4. 新增 my_own_learning/framework_comparison.md，对比 LangChain、LangGraph、LlamaIndex、CrewAI、AutoGen 等框架与本项目的关系
 5. 新增 my_own_learning/demo_scenarios.md，沉淀 RAG、SQL、图表、CSV、Python 沙箱、Trace、Benchmark 等演示脚本
 6. README 增加 my_own_learning/README.md 入口，把正式工程文档和个人学习资料区分开
+
+### Day 9 — Agent Harness 标准运行外壳
+
+1. 调研 OpenAI Agents SDK tracing/evals、Anthropic Agent Skills、LangSmith trajectory eval、LlamaIndex retrieval eval 等一手资料，确定项目内 harness 的职责边界
+2. 新增 src/harness/，包含结构化模型、runner、validators 和 CLI，用于统一运行 Agent 场景并收集回答、工具轨迹、skill、trace、耗时和校验结果
+3. 新增 data/harness_cases.yaml，提供 calculator、RAG、SQL+Chart 三类 dry-run 场景，使用脚本化 LLM 稳定触发工具调用
+4. 新增 tests/test_harness.py，覆盖 harness case 校验和脚本化 tool-call loop
+5. Makefile 增加 make harness / make harness-live，区分离线可回归场景和真实 Agent/LLM 端到端场景
+6. README、docs/development.md、docs/agent_architecture.md 和 my_own_learning/ 学习资料补充 Harness、Eval、Tests 的职责边界
+7. 新增 my_own_learning/standards_review.md，对照 OpenAI Agents SDK、Agent Skills、LangSmith、LlamaIndex 等资料说明当前项目规范性和后续补强路线
+8. 安装 security-best-practices、security-threat-model 两个 Codex skills，后续重启 Codex 后可用于继续审查 Agent 工具权限和威胁模型

@@ -22,6 +22,7 @@
 - RAG
 - Memory
 - Multi-agent
+- Harness / standard runner
 - Evaluation
 - Observability
 
@@ -67,6 +68,7 @@
 | `src/skills/` | CrewAI role、Semantic Kernel skill/plugin |
 | `src/memory/` | LangChain memory、LangGraph checkpoint |
 | `src/mcp/`、`mcp_servers/` | MCP tool server/client |
+| `src/harness/` | OpenAI Agents SDK Runner/Evals 思路、LangSmith trajectory eval 的运行外壳 |
 | `src/eval/` | LangSmith eval、custom benchmark |
 | `src/observability.py` | LangSmith tracing、OpenTelemetry 思路 |
 
@@ -146,4 +148,3 @@
 1. 先用这个项目理解 Agent 原理。
 2. 再学 LangGraph、LlamaIndex 等框架。
 3. 最后知道什么时候自研，什么时候使用框架。
-

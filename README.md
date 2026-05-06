@@ -160,6 +160,8 @@ make test-embedding
 | `make doctor` | 检查本地环境、密钥、数据库和依赖 |
 | `make benchmark` | dry-run 基准测试，验证评估用例结构并生成报告 |
 | `make benchmark-live` | 使用真实 Agent/LLM 跑基准测试并生成报告 |
+| `make harness` | 使用脚本化 LLM 跑标准 Agent harness 场景，收集工具轨迹和 trace |
+| `make harness-live` | 使用真实 Agent/LLM 跑 harness 场景 |
 | `make check` | 运行 lint + 默认测试 |
 
 ## 学习、开发与贡献文档
@@ -172,3 +174,14 @@ make test-embedding
 ## 配置
 
 所有配置集中在 `config/settings.yaml`，支持环境变量覆盖（如 `AGENT_LLM_MODEL`）。
+
+## Agent Harness
+
+Harness 是项目的标准运行外壳，用于把 Agent 输入、输出、工具调用轨迹、trace 和校验结果统一收集起来。
+
+- `src/harness/`：Harness runner、结构化模型和校验器
+- `data/harness_cases.yaml`：标准 dry-run / live 场景
+- `make harness`：默认脚本化 dry-run，不调用真实 LLM，适合 CI 和演示回归
+- `make harness-live`：调用真实 Agent / LLM，适合人工验收
+
+它和 benchmark 的区别是：Harness 负责“如何标准化运行并收集过程”，Benchmark/Eval 负责“如何评分和生成评估报告”。

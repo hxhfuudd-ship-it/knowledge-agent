@@ -1,7 +1,7 @@
 PYTHON ?= python3
 export PYTHONPYCACHEPREFIX ?= /tmp/knowledge-agent-pyc
 
-.PHONY: compile lint test test-embedding doctor init-db run-app benchmark benchmark-live check
+.PHONY: compile lint test test-embedding doctor init-db run-app benchmark benchmark-live harness harness-live check
 
 compile:
 	$(PYTHON) -m compileall -q src tests app.py import_csv.py mcp_servers data/init_db.py
@@ -29,5 +29,11 @@ benchmark:
 
 benchmark-live:
 	$(PYTHON) -m src.eval.benchmark --live --output data/benchmark_report.md
+
+harness:
+	$(PYTHON) -m src.harness.cli --output data/harness_report.md
+
+harness-live:
+	$(PYTHON) -m src.harness.cli --live --output data/harness_report.md
 
 check: lint test

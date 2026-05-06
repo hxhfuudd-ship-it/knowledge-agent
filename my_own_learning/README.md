@@ -6,8 +6,9 @@
 
 1. `learning_path.md`：按模块学习标准 Agent 项目。
 2. `framework_comparison.md`：理解这个项目和 LangChain、LangGraph、LlamaIndex 等框架的区别。
-3. `demo_scenarios.md`：准备能现场演示的 Agent 场景。
-4. `interview_guide.md`：整理成面试时能讲清楚的项目表达。
+3. `standards_review.md`：对照官方资料判断项目各模块是否规范。
+4. `demo_scenarios.md`：准备能现场演示的 Agent 场景。
+5. `interview_guide.md`：整理成面试时能讲清楚的项目表达。
 
 ## 这个项目的定位
 
@@ -42,4 +43,3 @@
 可以用下面这句话概括项目：
 
 > 这是一个我从零实现的标准 Agent 学习项目，不依赖 LangChain，而是手写了 Agent Core、Tool Calling、RAG、Memory、MCP、Evaluation、Trace 和 CI，用来理解 Agent 系统的底层结构和工程化边界。
-

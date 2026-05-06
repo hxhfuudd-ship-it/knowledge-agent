@@ -1,0 +1,51 @@
+cases:
+  - name: "calculator_tool_trace"
+    category: "tool_calling"
+    description: "Dry-run case that exercises the Agent tool loop and trace capture."
+    query: "帮我计算 123 + 456"
+    expect:
+      tools: ["calculator"]
+      keywords: ["579"]
+    script:
+      tool_calls:
+        - name: "calculator"
+          input:
+            expression: "123 + 456"
+      final_response: "计算结果是 579。"
+
+  - name: "rag_business_rule_route"
+    category: "rag"
+    description: "Dry-run case that checks RAG tool routing and source-aware response text."
+    query: "复购率是怎么计算的？"
+    expect:
+      tools: ["rag_search"]
+      keywords: ["复购率"]
+    script:
+      tool_calls:
+        - name: "rag_search"
+          input:
+            query: "复购率 计算方法"
+            top_k: 2
+      final_response: "复购率需要基于知识库中的业务规则定义计算。"
+
+  - name: "sql_chart_analysis_route"
+    category: "data_analysis"
+    description: "Dry-run case that checks multi-tool trajectory for data analysis and chart generation."
+    query: "帮我画个柱状图展示各部门人数"
+    expect:
+      tools: ["sql_query", "create_chart"]
+      keywords: ["柱状图"]
+    script:
+      tool_calls:
+        - name: "sql_query"
+          input:
+            query: "SELECT d.name, COUNT(e.id) AS employee_count FROM departments d LEFT JOIN employees e ON d.id = e.department_id GROUP BY d.id, d.name"
+        - name: "create_chart"
+          input:
+            chart_type: "bar"
+            data:
+              labels: ["技术部", "销售部", "市场部"]
+              values: [3, 3, 2]
+            title: "各部门人数"
+      final_response: "已生成各部门人数柱状图，并可基于图表继续分析组织结构。"
+

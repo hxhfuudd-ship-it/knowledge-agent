@@ -78,6 +78,8 @@ make doctor
 | `make test-embedding` | 真实 Embedding 集成测试 | 是 |
 | `make benchmark` | dry-run 评估用例结构并生成报告 | 否 |
 | `make benchmark-live` | 使用真实 Agent/LLM 跑评估 | 是 |
+| `make harness` | 使用脚本化 LLM 跑标准 harness 场景，收集工具轨迹和 trace | 否 |
+| `make harness-live` | 使用真实 Agent/LLM 跑 harness 场景 | 是 |
 
 ## 5. 新增 Tool
 
@@ -237,7 +239,43 @@ MCP Server 不应该默认拥有无限文件系统或数据库权限，应限制
 5. CLI 命令 dry-run。
 6. live 集成测试。
 
-## 12. 可观测性开发规范
+## 12. Agent Harness
+
+位置：
+
+- `src/harness/`
+- `data/harness_cases.yaml`
+
+Harness 是 Agent 的标准运行外壳，主要职责是：
+
+- 统一加载测试/演示场景。
+- 统一运行 Agent。
+- 统一收集最终回答、工具调用、skill、trace、耗时。
+- 统一校验预期工具、关键词、来源和 skill。
+- 支持 dry-run 和 live 两种模式。
+
+dry-run 使用脚本化 LLM，不请求真实模型，但仍然会走 Agent 的 tool-call loop，所以适合 CI、教学和演示回归。
+
+live 模式使用真实 Agent/LLM，适合人工验收和端到端验证。
+
+Harness、Eval、Tests 的边界：
+
+| 模块 | 关注点 |
+|---|---|
+| Harness | 如何标准化运行 Agent 并收集过程 |
+| Eval / Benchmark | 如何给结果打分和生成报告 |
+| Tests | 如何自动断言核心功能不退化 |
+
+新增 harness case 时，优先写清楚：
+
+- `query`：用户输入。
+- `expect.tools`：期望工具轨迹。
+- `expect.keywords`：最终回答需要包含的关键内容。
+- `expect.sources`：RAG 场景期望出现的来源。
+- `script.tool_calls`：dry-run 模式下脚本化 LLM 要触发的工具调用。
+- `script.final_response`：dry-run 模式下最终回答。
+
+## 13. 可观测性开发规范
 
 标准 Agent 项目必须能回答这些问题：
 
@@ -250,7 +288,7 @@ MCP Server 不应该默认拥有无限文件系统或数据库权限，应限制
 
 新增能力时尽量保证信息能进入 trace，而不是只写日志。UI 可以基于 trace 展示执行过程，测试也可以基于 trace 验证 Agent 行为。
 
-## 13. 安全开发规范
+## 14. 安全开发规范
 
 ### 文件与路径
 
@@ -279,7 +317,7 @@ MCP Server 不应该默认拥有无限文件系统或数据库权限，应限制
 - 工具结果应标注为 observation，而不是新的 system 指令。
 - 高风险工具可增加用户确认机制。
 
-## 14. CI 与质量门禁
+## 15. CI 与质量门禁
 
 CI 当前执行：
 
@@ -290,7 +328,7 @@ make check
 
 本地和 CI 共用同一条质量门禁，避免“本地能过、CI 不过”。如果新增更重的测试，请不要直接放进默认 `make check`，除非它仍然快速、稳定、离线。
 
-## 15. 排查路径
+## 16. 排查路径
 
 | 问题 | 优先检查 |
 |---|---|
@@ -303,7 +341,7 @@ make check
 | UI 展示异常 | Agent 返回结构、trace、Streamlit session state |
 | CI 失败 | `make check` 本地复现，确认是否误用了真实模型或网络 |
 
-## 16. 推荐扩展路线
+## 17. 推荐扩展路线
 
 如果继续把项目打磨成更标准的 Agent 教学工程，建议顺序是：
 

@@ -209,6 +209,8 @@ make run-app
 
 - `src/eval/benchmark.py`
 - `src/eval/metrics.py`
+- `src/harness/`
+- `data/harness_cases.yaml`
 - `src/observability.py`
 - `src/doctor.py`
 - `Makefile`
@@ -217,6 +219,7 @@ make run-app
 重点理解：
 
 - Agent 为什么需要 benchmark。
+- Harness 如何标准化运行 Agent 并收集工具轨迹。
 - dry-run 和 live benchmark 的区别。
 - trace 如何帮助定位工具调用、成本和延迟问题。
 - CI 为什么默认不跑真实模型。
@@ -225,11 +228,14 @@ make run-app
 
 - 为什么 Agent 不能只靠人工试用验证？
 - trace、log、metric 有什么区别？
+- Harness、Eval、Tests 的边界是什么？
 - `make check` 为什么是项目质量门禁？
 
 练习：
 
 - 新增一个 benchmark case。
+- 新增一个 harness case。
+- 跑 `make harness`。
 - 跑 `make benchmark`。
 - 在 UI 里观察一次完整 trace。
 
@@ -251,6 +257,7 @@ flowchart TD
     Agent --> Trace[Trace]
     RAG --> Docs[Documents]
     RAG --> Vector[Vector Store]
+    Agent --> Harness[Harness]
     Agent --> Eval[Benchmark / Tests]
 ```
 
@@ -262,4 +269,3 @@ flowchart TD
 - 能解释为什么测试要 mock embedding。
 - 能对比这个项目和 LangChain / LangGraph。
 - 能用一个 demo 展示 Agent 的工具调用链路。
-

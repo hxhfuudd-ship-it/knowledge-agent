@@ -18,6 +18,7 @@ flowchart TD
     Agent --> Eval[Eval / Tests]
     Agent --> MCP[MCP Client / Servers]
     Agent --> Trace[Observability / Trace]
+    Agent --> Harness[Harness / Standard Runner]
 ```
 
 ## 2. Agent Core
@@ -147,7 +148,20 @@ MCP 的价值是让 Agent 可以接入更多外部系统，同时保持工具发
 
 本项目默认测试 mock 真实 embedding，避免 CI 依赖模型下载；真实 embedding 测试通过 `make test-embedding` 显式开启。
 
-## 11. Production Checklist
+## 11. Harness
+
+位置：`src/harness/`、`data/harness_cases.yaml`
+
+职责：
+
+- 把 Agent 输入、输出、工具轨迹、skill、trace、耗时统一收集。
+- 支持 dry-run 脚本化 LLM，保证不依赖真实模型也能验证 Agent loop。
+- 支持 live 模式，用真实 Agent / LLM 跑端到端场景。
+- 校验工具调用、关键词、来源和 skill，作为 demo、回归和评估的共同入口。
+
+标准 Agent 项目通常需要这样的 harness：否则只能靠人工试问，无法稳定复现和观察 Agent 行为。
+
+## 12. Production Checklist
 
 一个更接近生产标准的 Agent 项目通常还需要：
 

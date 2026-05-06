@@ -9,6 +9,7 @@ pip install -r requirements-dev.txt
 make init-db
 make doctor
 make check
+make harness
 make run-app
 ```
 
@@ -160,17 +161,20 @@ date,channel,revenue
 命令：
 
 ```bash
+make harness
 make benchmark
 make check
 ```
 
 期望结果：
 
+- `make harness` dry-run 通过，展示工具轨迹、trace 和校验结果。
 - `make benchmark` dry-run 通过，不调用真实 LLM。
 - `make check` 通过 lint 和默认测试。
 
 讲解重点：
 
+- Harness 负责标准化运行和收集过程。
 - Agent 不能只靠手工体验验证。
 - 默认测试不依赖真实 embedding 或外部网络。
 - live benchmark 和默认 CI 要分开。
@@ -209,4 +213,3 @@ make check
 - 有 trace 可以解释过程。
 - 有测试和 benchmark 保证行为可回归。
 - 有安全边界说明。
-

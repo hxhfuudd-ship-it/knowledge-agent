@@ -16,8 +16,9 @@
 4. **RAG**：实现文档加载、切片、Embedding、向量存储、BM25、rerank、manifest 索引更新。
 5. **Memory**：短期、长期、情景、工作记忆分层。
 6. **LLM Adapter**：支持 Anthropic / OpenAI 兼容接口，避免业务层绑定 provider。
-7. **工程化**：有 `make check`、CI、doctor、benchmark、fake embedding 测试和 trace。
-8. **安全性**：SQL 只允许 SELECT，路径边界校验，Python 子进程沙箱。
+7. **Harness / Eval / Trace**：用标准 harness 收集工具轨迹和 trace，用 benchmark 做评估，用 CI 做回归。
+8. **工程化**：有 `make check`、CI、doctor、fake embedding 测试。
+9. **安全性**：SQL 只允许 SELECT，路径边界校验，Python 子进程沙箱。
 
 ## 项目亮点
 
@@ -87,6 +88,18 @@
 - `tests/test_agent.py`
 - `Makefile`
 
+### 6. 标准 Harness
+
+面试表达：
+
+> 我新增了 Agent harness，用脚本化 LLM 稳定触发工具调用，统一收集最终回答、工具轨迹、skill、trace、耗时和校验结果。这样 demo、回归测试和评估可以共用一套标准运行外壳，而不是只靠手动试问。
+
+对应源码：
+
+- `src/harness/`
+- `data/harness_cases.yaml`
+- `tests/test_harness.py`
+
 ## 推荐 Demo 路线
 
 ### Demo：业务指标分析
@@ -143,6 +156,12 @@
 
 > 因为 Agent 的行为是多步骤的。只看最终回答不知道它是否查了正确数据、是否调用了错误工具、哪里慢、哪里花 token。Trace 可以记录 LLM 调用、工具调用、耗时、token 和错误，方便调试、评估和优化。
 
+### Q5.1：Harness、Benchmark、Test 有什么区别？
+
+回答：
+
+> Harness 负责标准化运行 Agent 并收集过程，比如回答、工具调用、trace 和耗时；Benchmark 负责定义评分和生成评估报告；Test 负责在 CI 里做自动断言，保证核心能力不退化。三者边界清楚后，Agent 项目更容易调试和持续改进。
+
 ### Q6：这个项目有什么安全设计？
 
 回答：
@@ -183,7 +202,7 @@
 
 可以写：
 
-> 从零实现个人知识库数据 Agent，包含 ReAct 控制循环、Tool Calling、RAG 检索增强、短期/长期/工作记忆、MCP client/server、LLM provider adapter、Benchmark 评估、Trace 可观测性和 CI 质量门禁；默认测试 mock Embedding，支持离线稳定验证。
+> 从零实现个人知识库数据 Agent，包含 ReAct 控制循环、Tool Calling、RAG 检索增强、短期/长期/工作记忆、MCP client/server、LLM provider adapter、Harness 标准运行外壳、Benchmark 评估、Trace 可观测性和 CI 质量门禁；默认测试 mock Embedding，支持离线稳定验证。
 
 ## 最后总结
 
@@ -193,4 +212,3 @@
 - 你能解释每个模块为什么存在。
 - 你能演示一次完整工具调用链路。
 - 你能说明安全、评估、可观测性和工程化考虑。
-
