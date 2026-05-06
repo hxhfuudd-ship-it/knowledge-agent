@@ -129,6 +129,7 @@ make run-app
 - `src/skills/sql_expert.py`
 - `src/skills/report_gen.py`
 - `src/skills/doc_qa.py`
+- `skills/*/SKILL.md`
 - `tests/test_agent.py`
 
 重点理解：
@@ -136,6 +137,7 @@ make run-app
 - Skill 和 Tool 的区别。
 - keyword / embedding / hybrid 路由策略。
 - Skill 如何影响 system prompt 和工具使用倾向。
+- 标准 `SKILL.md` 如何描述适用场景、工具和工作流。
 
 要能回答：
 

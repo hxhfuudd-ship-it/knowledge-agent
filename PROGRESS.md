@@ -365,3 +365,11 @@
 3. Hybrid 检索加入轻量 lexical score，提升表名、字段名、指标名等精确匹配查询的稳定性
 4. RAG eval 当前用例达到 Source Hit@K 100%、Keyword Hit Rate 100%、MRR 1.0
 5. tests/test_rag.py 和 tests/test_rag_eval.py 增加 BM25 metadata、hybrid metadata 和当前 RAG eval 用例回归测试
+
+### Day 12 — 标准 Agent Skills 文件系统
+
+1. 新增 skills/README.md，说明文件系统 Skills 和 src/skills/ 运行时 SkillRegistry 的关系
+2. 新增 skills/data-analysis/SKILL.md、skills/sql-expert/SKILL.md、skills/doc-qa/SKILL.md、skills/report-generation/SKILL.md
+3. 每个 SKILL.md 包含 name、description、version、tools、runtime_mapping、适用场景、工作流、工具规范、输出要求和示例问题
+4. 新增 tests/test_skill_files.py，校验 SKILL.md frontmatter 和运行时代码映射
+5. README、docs/agent_architecture.md、docs/development.md 和 my_own_learning/ 文档补充标准 Skills 文件系统说明

@@ -74,14 +74,20 @@ flowchart TD
 
 ## 5. Skills
 
-位置：`src/skills/`
+位置：`src/skills/`、`skills/*/SKILL.md`
 
 职责：
 
 - 表达比工具更高层的能力，例如数据分析、报告生成、文档问答。
 - 包含专用 system prompt、关键词/语义路由信息、推荐工具集。
+- 用 `SKILL.md` 文件沉淀每个 Skill 的适用场景、工作流、工具规范和示例问题。
 
 Tool 是“能做什么”，Skill 是“如何组织一组工具完成某类任务”。
+
+本项目把 Skill 分成两层：
+
+- `src/skills/`：运行时代码层，Agent 用它做路由和 prompt 注入。
+- `skills/`：文件系统说明层，面向学习、复用和后续标准 Agent Skills 演进。
 
 ## 6. RAG
 

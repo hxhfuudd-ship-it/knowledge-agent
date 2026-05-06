@@ -83,6 +83,7 @@ knowledge-agent/
 ├── mcp_servers/               # MCP Server 进程
 │   ├── sqlite_server.py       # SQLite MCP Server
 │   └── knowledge_server.py    # 知识库 MCP Server
+├── skills/                    # 标准 Agent Skills 文件系统（SKILL.md）
 ├── data/
 │   ├── databases/default.db   # SQLite 模拟数据（6 张表）
 │   └── documents/             # 知识库文档
@@ -101,6 +102,7 @@ knowledge-agent/
 ### Tool vs Skill
 - Tool 是原子操作（查 SQL、读文件、算数学）
 - Skill 是组合能力（数据分析 = 查数据 + 处理 + 可视化 + 结论）
+- `src/skills/` 是运行时 SkillRegistry，`skills/*/SKILL.md` 是标准文件系统说明层
 
 ### RAG 流程
 文档加载 → 切片 → Embedding → 向量存储 → 混合检索（向量 + BM25）→ 重排序 → 上下文注入

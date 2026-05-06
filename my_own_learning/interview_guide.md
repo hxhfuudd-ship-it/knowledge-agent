@@ -51,6 +51,19 @@
 - CSV 导入
 - RAG 检索和索引
 
+### 2.1 标准 Skills 文件系统
+
+面试表达：
+
+> 我把运行时 Python SkillRegistry 和文件系统 `SKILL.md` 做了对应。`src/skills/` 负责 Agent 运行时路由，`skills/*/SKILL.md` 负责沉淀每个 Skill 的适用场景、工具规范、工作流和示例问题，这样既能运行，也更适合学习和复用。
+
+对应文件：
+
+- `skills/data-analysis/SKILL.md`
+- `skills/sql-expert/SKILL.md`
+- `skills/doc-qa/SKILL.md`
+- `skills/report-generation/SKILL.md`
+
 ### 3. RAG 不只是向量检索
 
 面试表达：

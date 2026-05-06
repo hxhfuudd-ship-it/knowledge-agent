@@ -61,13 +61,16 @@
 本项目现状：
 
 - 当前 `src/skills/` 是代码内 SkillRegistry，不是文件系统 `SKILL.md` 标准。
+- 新增 `skills/` 文件系统说明层，每个 Skill 一个目录，每个目录包含 `SKILL.md`。
+- 每个 `SKILL.md` 包含 `name`、`description`、`version`、`tools`、`runtime_mapping` 等 frontmatter。
 - 已有 keyword / embedding / hybrid 路由。
 - Skill 能表达任务策略和推荐工具。
 
 判断：
 
 - 作为自研 Agent 学习项目是合理的。
-- 如果要进一步贴近开放 Agent Skills 标准，可以新增 `.agent/skills/` 或 `skills/` 目录，用 `SKILL.md` 表达可移植技能，再由 SkillRegistry 读取元数据。
+- 当前已经具备标准 Skills 文件系统雏形。
+- 后续可以让 `SkillRegistry` 自动读取 `SKILL.md` 元数据，实现代码路由和文件说明统一来源。
 
 ## 4. Harness
 
