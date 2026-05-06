@@ -86,8 +86,35 @@ def test_retriever_rebuilds_bm25_from_store():
     assert retriever.get_stats()["bm25_ready"] is False
     retriever.ensure_bm25_index()
     assert retriever.get_stats()["bm25_ready"] is True
-    assert retriever.search_bm25("复购率", top_k=1)
+    bm25_results = retriever.search_bm25("复购率", top_k=1)
+    assert bm25_results
+    assert bm25_results[0][2]["filename"] == "rules.md"
     print("  OK  retriever rebuilds BM25 from persisted store")
+
+
+def test_hybrid_search_preserves_bm25_metadata():
+    try:
+        import rank_bm25  # noqa: F401
+    except ImportError:
+        print("  SKIP hybrid metadata (rank_bm25 not installed)")
+        return
+
+    retriever = Retriever()
+    retriever._store = SimpleVectorStore()
+    retriever.embedder = type("FakeEmbedder", (), {
+        "embed_query": lambda self, query: [1.0, 0.0],
+        "embed_texts": lambda self, texts: [[0.0, 1.0] for _ in texts],
+    })()
+    retriever.collection.add(
+        ids=["doc1", "doc2"],
+        documents=["orders 订单表 customer_id total_amount status", "部门职责 技术部 销售部"],
+        embeddings=[[0.0, 1.0], [0.0, 1.0]],
+        metadatas=[{"filename": "data_dictionary.py"}, {"filename": "business_rules.md"}],
+    )
+
+    results = retriever.search_hybrid("orders 订单表字段", top_k=1)
+    assert results[0][2]["filename"] == "data_dictionary.py"
+    print("  OK  hybrid search preserves BM25 metadata")
 
 
 def test_embedder_backend():

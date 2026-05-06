@@ -43,7 +43,7 @@ def build_offline_retriever(docs_dir: str = None) -> Retriever:
     loader = DocumentLoader()
     chunker = TextChunker(chunk_size=512, chunk_overlap=50)
     docs = loader.load(str(Path(docs_dir) if docs_dir else DEFAULT_DOCS_DIR))
-    chunks = chunker.chunk(docs, strategy="recursive")
+    chunks = chunker.chunk(docs, strategy="semantic")
 
     retriever = Retriever(top_k=5)
     retriever.embedder = HashEmbedder()

@@ -122,7 +122,7 @@ class Retriever:
                 items.append((doc, score, meta))
         return items
 
-    def search_bm25(self, query: str, top_k: Optional[int] = None) -> List[Tuple[str, float]]:
+    def search_bm25(self, query: str, top_k: Optional[int] = None) -> List[Tuple[str, float, dict]]:
         self.ensure_bm25_index()
         if not self._bm25 or not self._documents:
             return []
@@ -137,11 +137,21 @@ class Retriever:
             results = []
             for idx, score in indexed_scores[:k]:
                 if score > 0:
-                    results.append((self._documents[idx], score))
+                    meta = self.collection.metadatas[idx] if idx < len(self.collection.metadatas) else {}
+                    results.append((self._documents[idx], score, meta))
             return results
         except Exception as e:
             logger.warning("BM25 检索失败: %s", e)
             return []
+
+    @staticmethod
+    def _lexical_score(query: str, document: str) -> float:
+        query_terms = set(Retriever._tokenize(query))
+        if not query_terms:
+            return 0.0
+        doc_terms = set(Retriever._tokenize(document))
+        hits = query_terms & doc_terms
+        return len(hits) / len(query_terms)
 
     def search_hybrid(self, query: str, top_k: Optional[int] = None,
                       vector_weight: float = 0.7) -> List[Tuple[str, float, dict]]:
@@ -153,18 +163,24 @@ class Retriever:
         doc_scores = {}
         doc_meta = {}
 
+        lexical_weight = 0.15
+        effective_vector_weight = max(vector_weight - lexical_weight, 0)
+
         for doc, score, meta in vector_results:
-            doc_scores[doc] = vector_weight * score
+            doc_scores[doc] = effective_vector_weight * score
             doc_meta[doc] = meta
 
         bm25_weight = 1 - vector_weight
         if bm25_results:
-            max_bm25 = max((s for _, s in bm25_results), default=1) or 1
-            for doc, score in bm25_results:
+            max_bm25 = max((s for _, s, _meta in bm25_results), default=1) or 1
+            for doc, score, meta in bm25_results:
                 normalized = score / max_bm25
                 doc_scores[doc] = doc_scores.get(doc, 0) + bm25_weight * normalized
                 if doc not in doc_meta:
-                    doc_meta[doc] = {}
+                    doc_meta[doc] = meta
+
+        for doc in list(doc_scores):
+            doc_scores[doc] += lexical_weight * self._lexical_score(query, doc)
 
         sorted_docs = sorted(doc_scores.items(), key=lambda x: x[1], reverse=True)
         return [(doc, score, doc_meta.get(doc, {})) for doc, score in sorted_docs[:k]]

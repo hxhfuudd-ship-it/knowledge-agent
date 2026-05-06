@@ -106,7 +106,7 @@ class RAGSearchTool(Tool):
 
         docs = loader.load(str(DOCS_DIR))
         if docs:
-            chunks = chunker.chunk(docs, strategy="recursive")
+            chunks = chunker.chunk(docs, strategy="semantic")
             self.retriever.rebuild_documents(chunks)
             self._save_manifest(signature)
             logger.info("已索引 %d 个文档切片", len(chunks))

@@ -171,6 +171,7 @@ RAG 模块拆分如下：
 - 真实 Embedding 测试必须显式开启。
 - 检索结果应包含 source、chunk id、score 等可解释信息。
 - RAG Tool 输出应尽量结构化，便于 UI 展示和测试断言。
+- 结构化文档优先使用 semantic chunk，保留标题、表结构和指标定义边界。
 - RAG 改动后建议运行 `make rag-eval`，观察 Source Hit@K、Keyword Hit Rate、MRR 是否变化。
 
 ## 8. 新增 LLM Provider

@@ -24,3 +24,12 @@ def test_rag_eval_offline_retriever_runs():
     assert results["details"][0]["retrieved_sources"]
     print("  OK  rag eval offline retriever runs")
 
+
+def test_rag_eval_current_cases_pass():
+    cases = load_cases("data/rag_eval_cases.yaml")
+    retriever = build_offline_retriever()
+    results = evaluate_cases(cases, retriever, top_k=3)
+    assert results["failed"] == 0
+    assert results["source_hit_at_k"] == 1.0
+    assert results["mrr"] == 1.0
+    print("  OK  rag eval current cases pass")

@@ -193,6 +193,7 @@ RAG eval 用于单独评估检索阶段，不评价最终回答：
 
 - `data/rag_eval_cases.yaml`：检索评估用例，包含 query、期望来源和关键词
 - `src/eval/rag_eval.py`：离线构建 retriever，输出 Source Hit@K、Keyword Hit Rate、MRR
+- 检索默认使用 semantic chunk，尽量保留标题/表结构等语义单元
 - `make rag-eval`：生成 `data/rag_eval_report.md`
 
 默认 `make rag-eval` 只输出指标，不作为质量门禁失败；如果要把它作为严格回归检查，可使用 `python3 -m src.eval.rag_eval --fail-on-regression`。

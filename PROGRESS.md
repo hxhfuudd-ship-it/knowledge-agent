@@ -357,3 +357,11 @@
 3. 新增 tests/test_rag_eval.py，验证 RAG eval 用例加载和离线 retriever 可运行
 4. Makefile 增加 make rag-eval，生成 data/rag_eval_report.md；默认只报告指标，不阻塞质量门禁
 5. README、docs/development.md 和 my_own_learning/ 文档补充 RAG eval 的定位、指标和使用方式
+
+### Day 11 — RAG 检索质量基础优化
+
+1. RAG 索引从 recursive chunk 调整为 semantic chunk，优先保留标题、表结构和业务指标定义边界
+2. Retriever.search_bm25 返回 metadata，修复 BM25 命中后来源信息丢失的问题
+3. Hybrid 检索加入轻量 lexical score，提升表名、字段名、指标名等精确匹配查询的稳定性
+4. RAG eval 当前用例达到 Source Hit@K 100%、Keyword Hit Rate 100%、MRR 1.0
+5. tests/test_rag.py 和 tests/test_rag_eval.py 增加 BM25 metadata、hybrid metadata 和当前 RAG eval 用例回归测试
