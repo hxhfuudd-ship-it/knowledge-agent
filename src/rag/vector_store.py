@@ -38,12 +38,15 @@ class SimpleVectorStore:
 
         self._save()
 
-    def query(self, query_embedding: List[float], n_results: int = 5) -> dict:
+    def query(self, query_embedding: List[float], n_results: int = 5, filters: Optional[dict] = None) -> dict:
         if not self.embeddings:
             return {"documents": [[]], "distances": [[]], "metadatas": [[]]}
 
         scores = []
         for i, emb in enumerate(self.embeddings):
+            meta = self.metadatas[i] if i < len(self.metadatas) else {}
+            if not self._matches_filters(meta, filters):
+                continue
             sim = self._cosine_similarity(query_embedding, emb)
             scores.append((i, sim))
 
@@ -55,6 +58,42 @@ class SimpleVectorStore:
         metas = [self.metadatas[i] for i, _ in top]
 
         return {"documents": [docs], "distances": [distances], "metadatas": [metas]}
+
+    @staticmethod
+    def _matches_filters(metadata: dict, filters: Optional[dict]) -> bool:
+        if not filters:
+            return True
+
+        for key, expected in filters.items():
+            actual = metadata.get(key)
+            if isinstance(expected, dict):
+                if "contains" in expected:
+                    needle = expected["contains"]
+                    if isinstance(actual, list):
+                        if needle not in actual:
+                            return False
+                    elif isinstance(actual, str):
+                        if needle not in actual:
+                            return False
+                    else:
+                        return False
+                if "in" in expected:
+                    expected_values = expected["in"]
+                    if isinstance(actual, list):
+                        if not any(item in expected_values for item in actual):
+                            return False
+                    elif actual not in expected_values:
+                        return False
+                if "gte" in expected:
+                    if actual is None or actual < expected["gte"]:
+                        return False
+                if "lte" in expected:
+                    if actual is None or actual > expected["lte"]:
+                        return False
+            else:
+                if actual != expected:
+                    return False
+        return True
 
     def count(self) -> int:
         return len(self.documents)

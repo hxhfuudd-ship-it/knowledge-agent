@@ -3,7 +3,7 @@ import json
 import logging
 from typing import List
 from pathlib import Path
-from ..tools.base import Tool
+from ..tools.base import Tool, ToolPolicy
 from .loader import DocumentLoader
 from .chunker import TextChunker
 from .retriever import Retriever
@@ -32,6 +32,14 @@ class RAGSearchTool(Tool):
         "从知识库中语义检索相关文档。适用于查找数据字典、业务规则、分析方法等知识。"
         "输入自然语言查询，返回带 source/chunk_id/citation 的相关文档片段。"
         "回答知识库问题时应基于这些片段，并在结论后标注引用。"
+    )
+    policy = ToolPolicy(
+        risk_level="low",
+        read_only=False,
+        destructive=False,
+        idempotent=True,
+        allowed_scopes=("data/documents", "data/vector_store.json", "data/vector_store_manifest.json"),
+        description="检索本地知识库；首次调用可能重建本地索引。",
     )
     parameters = {
         "type": "object",
@@ -159,6 +167,13 @@ class RAGSearchTool(Tool):
 class RAGIndexTool(Tool):
     name = "rag_index_stats"
     description = "查看知识库索引的统计信息，包括已索引文档数量等。"
+    policy = ToolPolicy(
+        risk_level="low",
+        read_only=True,
+        idempotent=True,
+        allowed_scopes=("data/vector_store.json",),
+        description="只读取本地 RAG 索引统计信息。",
+    )
     parameters = {
         "type": "object",
         "properties": {},

@@ -306,6 +306,8 @@ class HarnessRunner:
         agent = Agent.__new__(Agent)
         agent.llm = ScriptedLLM(tool_calls=tool_calls, final_response=final_response)
         agent.max_iterations = case.limits.max_iterations
+        agent.enforce_tool_permissions = False
+        agent.approved_tools = set()
         agent.registry = ToolRegistry()
         for tool_call in tool_calls:
             name = tool_call.get("name", "")
@@ -315,6 +317,7 @@ class HarnessRunner:
         agent.conversation = []
         agent.tool_call_log = []
         agent.trace = TraceRecorder()
+        agent.memory_namespace = "harness"
         agent.short_term = NoopShortTermMemory()
         agent.long_term = NoopLongTermMemory()
         agent.episodic = NoopEpisodicMemory()

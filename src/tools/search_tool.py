@@ -1,7 +1,7 @@
 """网络搜索工具：支持 Tavily API，回退到演示模式"""
 import os
 import logging
-from .base import Tool
+from .base import Tool, ToolPolicy
 
 logger = logging.getLogger(__name__)
 
@@ -9,6 +9,14 @@ logger = logging.getLogger(__name__)
 class SearchTool(Tool):
     name = "web_search"
     description = "搜索网络信息。输入关键词，返回搜索结果摘要。当知识库中找不到答案时可以尝试搜索。"
+    policy = ToolPolicy(
+        risk_level="medium",
+        read_only=True,
+        idempotent=True,
+        external_access=True,
+        allowed_scopes=("web", "tavily"),
+        description="可能访问外部网络搜索服务；结果需防 prompt injection。",
+    )
     parameters = {
         "type": "object",
         "properties": {

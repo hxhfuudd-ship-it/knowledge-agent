@@ -2,7 +2,7 @@
 import json
 import logging
 from pathlib import Path
-from .base import Tool
+from .base import Tool, ToolPolicy
 
 logger = logging.getLogger(__name__)
 
@@ -14,6 +14,14 @@ class ChartTool(Tool):
     description = (
         "根据数据生成图表（柱状图、折线图、饼图等），保存为 PNG 文件。\n"
         "传入 chart_type、title、data（JSON 格式的 labels 和 values）。"
+    )
+    policy = ToolPolicy(
+        risk_level="medium",
+        read_only=False,
+        destructive=False,
+        idempotent=False,
+        allowed_scopes=("data/charts",),
+        description="会在 data/charts 下写入图表文件。",
     )
     parameters = {
         "type": "object",

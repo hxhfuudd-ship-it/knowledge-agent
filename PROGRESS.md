@@ -7,6 +7,7 @@
 | Agent 核心 | 已完成 | ReAct 循环、Tool Use、Skill 路由、流式输出、Trace 记录 |
 | LLM 抽象层 | 已完成 | Anthropic / OpenAI 兼容适配器、统一 Tool Call 与 Usage 格式 |
 | 工具层 | 已完成 | SQL、计算、文件、Python、搜索、图表、CSV、RAG 等核心工具 |
+| 工具权限 | 已完成 | ToolPolicy 风险分级、审批门禁、资源范围声明、Trace 审计、MCP annotations |
 | Skills 系统 | 已完成 | 4 个 Skill + keyword / embedding / hybrid 路由 |
 | RAG 系统 | 已完成 | 文档加载、切片、Embedding、向量检索、BM25、索引变更检测 |
 | MCP 协议 | 已完成 | SQLite Server、Knowledge Server、JSON-RPC Client |
@@ -86,6 +87,9 @@
    - sql_tool：token 级 SQL 注入检测，只允许安全查询形态
    - python_tool：从同进程 exec 升级为隔离子进程执行，增加超时、输出截断、代码长度限制和安全 import/builtin 白名单
    - MCP Server：SQL 表名、文件名、知识库路径均做显式校验
+   - ToolPolicy：为每个工具声明风险等级、读写属性、外部访问、资源范围和是否需要确认
+   - Agent 权限门禁：默认审计不阻断；开启 enforce 后高风险工具必须显式 approved
+   - MCP annotations：工具发现结果声明 readOnly / destructive / idempotent / openWorld hint
 
 2. **架构**
    - 统一配置系统（settings.yaml + 环境变量覆盖）
@@ -130,7 +134,7 @@
 | Agent 架构 | src/agent/core.py | ReAct 循环、Tool Use、流式输出、Trace 汇总 |
 | LLM 抽象层 | src/llm/ | Provider Adapter、统一响应模型、Tool Call 适配 |
 | Function Calling | src/tools/base.py | JSON Schema 参数定义、工具注册、Claude/OpenAI 工具格式 |
-| 工具安全 | src/tools/python_tool.py、src/path_utils.py | 子进程沙箱、路径边界、防注入校验 |
+| 工具安全 | src/tools/base.py、src/tools/python_tool.py、src/path_utils.py | ToolPolicy、审批门禁、子进程沙箱、路径边界、防注入校验 |
 | RAG 流水线 | src/rag/ | 切片、Embedding、混合检索、BM25、索引生命周期 |
 | MCP 协议 | src/mcp/ + mcp_servers/ | JSON-RPC、Server/Client、外部能力接入 |
 | Skill 编排 | src/skills/ | Tool 组合、专用 Prompt、语义/关键词路由 |

@@ -52,6 +52,36 @@ def render_trace(trace):
             if metadata:
                 st.json(metadata, expanded=False)
 
+
+def render_tool_call(tc):
+    st.markdown(f"**{tc['tool']}**")
+    policy = tc.get("policy") or {}
+    if policy:
+        mode = "强制门禁" if policy.get("permission_enforced") else "仅审计"
+        allowed = "允许" if policy.get("permission_allowed", True) else "拒绝"
+        approved = "已审批" if policy.get("approved") else "未审批"
+        st.caption(
+            "Policy: risk=%s · %s · %s · %s" % (
+                policy.get("risk_level", "unknown"),
+                mode,
+                allowed,
+                approved,
+            )
+        )
+        with st.expander("权限策略", expanded=False):
+            st.json(policy, expanded=False)
+    st.code(json.dumps(tc["input"], ensure_ascii=False, indent=2), language="json")
+    output = tc["output"]
+    if tc["tool"] == "rag_search" and "---" in output:
+        st.markdown("**检索结果：**")
+        for chunk in output.split("\n---\n"):
+            chunk = chunk.strip()
+            if chunk:
+                st.info(chunk[:500])
+    else:
+        st.text(output[:500])
+    st.divider()
+
 # 初始化
 if "agent" not in st.session_state:
     st.session_state.agent = Agent()
@@ -97,6 +127,7 @@ with st.sidebar:
     with tab2:
         st.subheader("记忆系统")
         stats = agent.get_memory_stats()
+        st.caption(f"当前 memory namespace: `{agent.memory_namespace}`")
         st.metric("短期记忆", f"{stats['short_term']} 条")
         st.metric("长期记忆", f"{stats['long_term']} 条")
         st.metric("情景记忆", f"{stats['episodic']} 条")
@@ -129,6 +160,7 @@ with st.sidebar:
         if selected != st.session_state.current_project:
             st.session_state.current_project = selected
             config.set("database.path", "data/databases/%s.db" % selected)
+            agent.set_memory_namespace(selected)
             st.rerun()
 
         col1, col2 = st.columns(2)
@@ -144,6 +176,7 @@ with st.sidebar:
                         sqlite3.connect(str(new_db)).close()
                         st.session_state.current_project = new_name
                         config.set("database.path", "data/databases/%s.db" % new_name)
+                        agent.set_memory_namespace(new_name)
                         st.success("已创建: %s" % new_name)
                         st.rerun()
                 except ValueError as e:
@@ -157,6 +190,7 @@ with st.sidebar:
                         db_file.unlink()
                     st.session_state.current_project = "default"
                     config.set("database.path", "data/databases/default.db")
+                    agent.set_memory_namespace("default")
                     st.rerun()
                 except ValueError as e:
                     st.warning(str(e))
@@ -229,18 +263,7 @@ for msg in st.session_state.messages:
         if msg.get("tool_calls"):
             with st.expander(f"🔧 工具调用 ({len(msg['tool_calls'])} 次)"):
                 for tc in msg["tool_calls"]:
-                    st.markdown(f"**{tc['tool']}**")
-                    st.code(json.dumps(tc["input"], ensure_ascii=False, indent=2), language="json")
-                    output = tc["output"]
-                    if tc["tool"] == "rag_search" and "---" in output:
-                        st.markdown("**检索结果：**")
-                        for chunk in output.split("\n---\n"):
-                            chunk = chunk.strip()
-                            if chunk:
-                                st.info(chunk[:500])
-                    else:
-                        st.text(output[:500])
-                    st.divider()
+                    render_tool_call(tc)
 
         render_trace(msg.get("trace"))
 
@@ -286,18 +309,7 @@ if user_input:
         if final_result and final_result["tool_calls"]:
             with st.expander(f"🔧 工具调用 ({len(final_result['tool_calls'])} 次)"):
                 for tc in final_result["tool_calls"]:
-                    st.markdown(f"**{tc['tool']}**")
-                    st.code(json.dumps(tc["input"], ensure_ascii=False, indent=2), language="json")
-                    output = tc["output"]
-                    if tc["tool"] == "rag_search" and "---" in output:
-                        st.markdown("**检索结果：**")
-                        for chunk in output.split("\n---\n"):
-                            chunk = chunk.strip()
-                            if chunk:
-                                st.info(chunk[:500])
-                    else:
-                        st.text(output[:500])
-                    st.divider()
+                    render_tool_call(tc)
 
         if final_result:
             render_trace(final_result.get("trace"))

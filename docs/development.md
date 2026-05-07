@@ -97,12 +97,19 @@ Tool 是 Agent 能调用的原子动作。标准流程：
 最小结构示例：
 
 ```python
-from src.tools.base import Tool
+from src.tools.base import Tool, ToolPolicy
 
 
 class ExampleTool(Tool):
     name = "example_tool"
     description = "说明这个工具适合解决什么问题"
+    policy = ToolPolicy(
+        risk_level="low",
+        read_only=True,
+        idempotent=True,
+        allowed_scopes=("memory",),
+        description="只做内存里的字符串转换。",
+    )
     parameters = {
         "type": "object",
         "properties": {
@@ -122,9 +129,20 @@ Tool 设计检查点：
 - 名称是否稳定、短小、语义明确。
 - description 是否告诉模型什么时候该用它。
 - parameters 是否足够严格，避免模糊输入。
+- policy 是否声明风险等级、是否只读、是否需要用户确认。
 - execute 是否能安全失败。
 - 是否有路径、SQL、网络、代码执行等风险。
 - 是否能被 fake LLM 测试覆盖。
+
+风险分级建议：
+
+| 风险 | 适用工具 | 要求 |
+|---|---|---|
+| low | 纯计算、本地只读统计 | schema + 基本输入校验 |
+| medium | 文件读取、SQL SELECT、外网搜索、写 artifact | 路径/SQL/网络边界 + trace 审计 |
+| high | 代码执行、写数据库、删除/覆盖数据、调用外部系统改状态 | `requires_confirmation=True` + 明确 `allowed_scopes` |
+
+`ToolPolicy` 和 prompt 约束不是一回事。prompt 可以提醒模型少犯错，但真正的安全边界必须在工具代码和 Agent runtime 中执行。
 
 ## 6. 新增 Skill
 
@@ -223,6 +241,10 @@ Memory 不应该只是保存聊天记录。建议按职责拆分：
 - 过期和更新策略。
 - 与 system prompt 的注入方式。
 - 隐私和本地持久化路径。
+- namespace 隔离，避免不同项目或用户的记忆串用。
+- category、tags、importance 等 metadata，便于过滤和排序。
+
+当前项目通过 `build_memory_bundle()` 统一构建四层 memory；`Agent.get_memory_context()` 负责把相关长期记忆、最近情景记忆和工作记忆组合进上下文。
 
 ## 10. 新增 MCP 能力
 
@@ -236,6 +258,15 @@ MCP 适合把外部系统包装成标准能力。新增 MCP Server 时：
 6. 添加 smoke test 或协议层测试。
 
 MCP Server 不应该默认拥有无限文件系统或数据库权限，应限制到明确目录、明确数据库或明确 API 范围。
+
+本项目的 MCP server 已补到一版学习型标准骨架：
+
+- 支持 `initialize` 与 `notifications/initialized`
+- 支持 `prompts/list` 与 `prompts/get`
+- 工具返回可带 `outputSchema` / `structuredContent`
+- 工具声明 `annotations`，例如只读、是否破坏性、是否幂等、是否访问外部世界
+- JSON-RPC 错误统一返回
+- 有协议层测试覆盖
 
 ## 11. 评估与测试策略
 

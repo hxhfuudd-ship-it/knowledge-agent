@@ -4,6 +4,7 @@ import logging
 import time
 from typing import List, Dict
 from pathlib import Path
+from .. import config
 
 logger = logging.getLogger(__name__)
 
@@ -13,7 +14,8 @@ EPISODIC_PATH = Path(__file__).parent.parent.parent / "data" / "episodic_memory.
 class EpisodicMemory:
     """记录历史交互的摘要，如"上次分析了销售数据，发现Q3下降" """
 
-    def __init__(self):
+    def __init__(self, namespace: str = None):
+        self.namespace = namespace or config.get("memory.namespace", "default")
         self.episodes: List[Dict] = []
         self._load()
 
@@ -22,13 +24,14 @@ class EpisodicMemory:
             "summary": summary,
             "timestamp": time.time(),
             "time_str": time.strftime("%Y-%m-%d %H:%M:%S"),
+            "namespace": self.namespace,
             "details": details or {},
         }
         self.episodes.append(episode)
         self._save()
 
     def get_recent(self, n: int = 5) -> List[Dict]:
-        return self.episodes[-n:]
+        return [ep for ep in self.episodes if ep.get("namespace", "default") == self.namespace][-n:]
 
     def get_context_string(self, n: int = 3) -> str:
         recent = self.get_recent(n)
@@ -40,10 +43,13 @@ class EpisodicMemory:
         return "\n".join(lines)
 
     def search(self, keyword: str) -> List[Dict]:
-        return [ep for ep in self.episodes if keyword in ep["summary"]]
+        return [ep for ep in self.episodes if ep.get("namespace", "default") == self.namespace and keyword in ep["summary"]]
+
+    def count(self) -> int:
+        return len(self.get_recent(len(self.episodes)))
 
     def clear(self):
-        self.episodes = []
+        self.episodes = [ep for ep in self.episodes if ep.get("namespace", "default") != self.namespace]
         self._save()
 
     def _save(self):
@@ -60,6 +66,8 @@ class EpisodicMemory:
         try:
             with open(EPISODIC_PATH, "r", encoding="utf-8") as f:
                 self.episodes = json.load(f)
+            for episode in self.episodes:
+                episode.setdefault("namespace", "default")
         except (json.JSONDecodeError, IOError) as e:
             logger.warning("情景记忆加载失败，将使用空记忆: %s", e)
             self.episodes = []

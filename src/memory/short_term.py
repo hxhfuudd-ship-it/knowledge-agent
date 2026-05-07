@@ -2,6 +2,7 @@
 import logging
 from typing import List, Dict, Optional
 from copy import deepcopy
+from .. import config
 
 logger = logging.getLogger(__name__)
 
@@ -9,14 +10,15 @@ logger = logging.getLogger(__name__)
 class ShortTermMemory:
     """滑动窗口管理对话历史，超长时用 LLM 压缩早期对话保留关键信息"""
 
-    def __init__(self, max_messages: int = 20):
+    def __init__(self, max_messages: int = 20, namespace: str = None):
         self.max_messages = max_messages
+        self.namespace = namespace or config.get("memory.namespace", "default")
         self.messages: List[Dict] = []
         self._summary: str = ""
         self._compressor = None
 
     def add(self, role: str, content: str):
-        self.messages.append({"role": role, "content": content})
+        self.messages.append({"role": role, "content": content, "namespace": self.namespace})
         if len(self.messages) > self.max_messages:
             self._compress_and_trim()
 
@@ -70,6 +72,7 @@ class ShortTermMemory:
 
     def get_context(self) -> Dict:
         return {
+            "namespace": self.namespace,
             "summary": self._summary,
             "messages": self.get_messages(),
         }

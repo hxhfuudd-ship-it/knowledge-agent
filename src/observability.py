@@ -32,7 +32,8 @@ class TraceRecorder:
         )
 
     def add_tool_call(self, name: str, duration_ms: float, success: bool,
-                      input_data: Optional[dict] = None, output: str = ""):
+                      input_data: Optional[dict] = None, output: str = "",
+                      policy: Optional[dict] = None):
         self.add_event(
             "tool",
             name,
@@ -41,6 +42,7 @@ class TraceRecorder:
                 "success": success,
                 "input": input_data or {},
                 "output_preview": str(output)[:300],
+                "policy": policy or {},
             },
         )
 

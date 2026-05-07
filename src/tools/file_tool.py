@@ -1,6 +1,6 @@
 """文件读写工具：读取知识库目录下的文件"""
 from pathlib import Path
-from .base import Tool
+from .base import Tool, ToolPolicy
 from ..path_utils import resolve_under
 
 ALLOWED_DIR = Path(__file__).parent.parent.parent / "data" / "documents"
@@ -11,6 +11,13 @@ class FileReadTool(Tool):
     description = (
         "读取知识库目录下的文件内容。可用于查看数据字典、业务文档等。"
         "先用 list_files 查看有哪些文件，再用此工具读取。"
+    )
+    policy = ToolPolicy(
+        risk_level="medium",
+        read_only=True,
+        idempotent=True,
+        allowed_scopes=("data/documents",),
+        description="只读访问 data/documents 下的知识库文件。",
     )
     parameters = {
         "type": "object",
@@ -43,6 +50,13 @@ class FileReadTool(Tool):
 class FileListTool(Tool):
     name = "list_files"
     description = "列出知识库目录下的所有文件。"
+    policy = ToolPolicy(
+        risk_level="low",
+        read_only=True,
+        idempotent=True,
+        allowed_scopes=("data/documents",),
+        description="只列出 data/documents 下的文件名。",
+    )
     parameters = {
         "type": "object",
         "properties": {},

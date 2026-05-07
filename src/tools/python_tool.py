@@ -4,7 +4,7 @@ import logging
 import re
 import subprocess
 import sys
-from .base import Tool
+from .base import Tool, ToolPolicy
 
 logger = logging.getLogger(__name__)
 
@@ -78,6 +78,15 @@ class PythonTool(Tool):
         "在受限子进程中执行 Python 代码片段并返回输出。适合数据处理、格式转换、简单计算等。\n"
         "限制：不能访问文件系统、网络、系统命令；默认 3 秒超时。"
         "可用库：math、statistics、json、re、datetime、collections。"
+    )
+    policy = ToolPolicy(
+        risk_level="high",
+        requires_confirmation=True,
+        read_only=True,
+        destructive=False,
+        idempotent=False,
+        allowed_scopes=("isolated-python-subprocess",),
+        description="执行模型生成代码，即使有沙箱也属于高风险能力。",
     )
     parameters = {
         "type": "object",

@@ -9,7 +9,7 @@
 - 向量存储：纯 Python 实现（JSON 持久化 + 余弦相似度）
 - 数据库：SQLite
 - 前端：Streamlit
-- MCP：Python MCP SDK（stdio 通信）
+- MCP：自研 Python MCP Client/Server（JSON-RPC stdio 通信）
 
 ## 快速开始
 
@@ -104,14 +104,17 @@ knowledge-agent/
 - Skill 是组合能力（数据分析 = 查数据 + 处理 + 可视化 + 结论）
 - `src/skills/` 是运行时 SkillRegistry，`skills/*/SKILL.md` 是标准文件系统说明层
 
+### Tool Permissions
+每个工具都有 `ToolPolicy`，声明风险等级、是否只读、是否需要确认、是否访问外部系统和允许资源范围。默认配置只做审计不阻断；开启 `agent.enforce_tool_permissions=true` 后，`python_exec`、`csv_import` 等高风险工具必须进入 `approved_tools` 才能执行。工具调用记录和 trace 会保留 policy 信息，便于学习和排查。
+
 ### RAG 流程
 文档加载 → 切片 → Embedding → 向量存储 → 混合检索（向量 + BM25）→ 重排序 → 上下文注入
 
 ### 记忆系统
-短期（对话窗口）+ 长期（向量持久化）+ 情景（历史摘要）+ 工作（任务状态）
+短期（对话窗口）+ 长期（向量持久化）+ 情景（历史摘要）+ 工作（任务状态）。长期记忆支持 namespace、category、tags、importance 和相关性召回，避免不同项目记忆串用。
 
 ### MCP 协议
-通过 JSON-RPC stdio 通信，将数据源封装为标准化服务。
+通过 JSON-RPC stdio 通信，将数据源封装为标准化服务，并补齐初始化、工具发现、资源读取、prompts 和结构化输出。
 
 ## Embedding 模型
 
@@ -177,6 +180,14 @@ make test-embedding
 ## 配置
 
 所有配置集中在 `config/settings.yaml`，支持环境变量覆盖（如 `AGENT_LLM_MODEL`）。
+
+工具权限相关配置：
+
+```yaml
+agent:
+  enforce_tool_permissions: false
+  approved_tools: []
+```
 
 ## Agent Harness
 

@@ -27,3 +27,5 @@ agent:
   max_iterations: 10
   strategy: react  # react | plan_and_execute
   skill_match: hybrid  # keyword | embedding | hybrid
+  enforce_tool_permissions: false  # false=只审计不阻断；true=高风险工具需要 approved_tools
+  approved_tools: []  # 例如 ["python_exec", "csv_import"]

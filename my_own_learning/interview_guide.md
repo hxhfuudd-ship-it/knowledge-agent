@@ -181,7 +181,7 @@
 
 回答：
 
-> SQL 工具默认只允许 SELECT；文件和 CSV 工具有路径边界校验；Python 工具使用隔离子进程、超时、输出截断和 import/builtin 限制；MCP Server 对表名和文件名做校验。核心原则是工具层必须自己做安全校验，不能只依赖 prompt。
+> SQL 工具默认只允许 SELECT；文件和 CSV 工具有路径边界校验；Python 工具使用隔离子进程、超时、输出截断和 import/builtin 限制；同时我给每个工具加了 ToolPolicy，声明风险等级、读写属性、外部访问和资源范围。默认模式会审计工具权限，开启 enforce 后 `python_exec`、`csv_import` 这类高风险工具必须显式 approved 才能执行。核心原则是安全边界要在工具层和 runtime 执行，不能只依赖 prompt。
 
 ### Q7：为什么默认测试不用真实 Embedding？
 
@@ -193,7 +193,7 @@
 
 回答：
 
-> 作为学习项目已经比较完整。生产化还需要 FastAPI 服务层、工具权限系统、用户确认机制、结构化输出 schema、Docker 部署、监控日志、RAG 评估集和更强的 prompt 注入防护。
+> 作为学习项目已经比较完整。生产化还需要 FastAPI 服务层、真正的 UI 用户确认流、结构化输出 schema、Docker 部署、监控日志落盘、威胁模型和更强的 prompt 注入防护。
 
 ## 面试时不要这样说
 

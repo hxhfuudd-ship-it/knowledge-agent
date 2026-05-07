@@ -127,11 +127,14 @@ def build_test_agent():
     agent = Agent.__new__(Agent)
     agent.llm = FakeLLM()
     agent.max_iterations = 3
+    agent.enforce_tool_permissions = False
+    agent.approved_tools = set()
     agent.registry = ToolRegistry()
     agent.registry.register(CalculatorTool())
     agent.skill_registry = SkillRegistry(match_strategy="keyword")
     agent.conversation = []
     agent.tool_call_log = []
+    agent.memory_namespace = "test"
     agent.short_term = NoopShortTermMemory()
     agent.long_term = NoopLongTermMemory()
     agent.episodic = NoopEpisodicMemory()
@@ -162,6 +165,42 @@ def test_claude_tool_format():
         assert "description" in t
         assert "input_schema" in t
     print("  OK  claude tool format valid")
+
+
+def test_tool_registry_policy_listing():
+    reg = ToolRegistry()
+    reg.register(SQLTool())
+    reg.register(PythonTool())
+    policies = reg.list_tool_policies()
+    assert len(policies) == 2
+    python_policy = next(item["policy"] for item in policies if item["name"] == "python_exec")
+    assert python_policy["risk_level"] == "high"
+    assert python_policy["requires_confirmation"] is True
+    print("  OK  tool registry policy listing")
+
+
+def test_agent_blocks_high_risk_tool_when_permissions_enforced():
+    agent = build_test_agent()
+    agent.registry.register(PythonTool())
+    agent.enforce_tool_permissions = True
+    result, policy = agent._execute_tool("python_exec", {"code": "print(1)"})
+    assert result.startswith("权限拒绝")
+    assert policy["risk_level"] == "high"
+    assert policy["permission_enforced"] is True
+    assert policy["permission_allowed"] is False
+    print("  OK  high-risk tool blocked without approval")
+
+
+def test_agent_allows_approved_high_risk_tool_when_permissions_enforced():
+    agent = build_test_agent()
+    agent.registry.register(PythonTool())
+    agent.enforce_tool_permissions = True
+    agent.approved_tools = {"python_exec"}
+    result, policy = agent._execute_tool("python_exec", {"code": "print(1 + 1)"})
+    assert "2" in result
+    assert policy["approved"] is True
+    assert policy["permission_allowed"] is True
+    print("  OK  approved high-risk tool allowed")
 
 
 def test_skill_registry():

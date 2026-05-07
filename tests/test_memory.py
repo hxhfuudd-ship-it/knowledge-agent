@@ -9,6 +9,22 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 from src.memory.short_term import ShortTermMemory
 from src.memory.episodic import EpisodicMemory
 from src.memory.working import WorkingMemory
+from src.memory.long_term import LongTermMemory
+
+
+class FakeEmbedder:
+    def embed_query(self, text):
+        return self.embed_texts([text])[0]
+
+    def embed_texts(self, texts):
+        vectors = []
+        for text in texts:
+            vectors.append([
+                1.0 if "中文" in text or "回复" in text else 0.0,
+                1.0 if "英文" in text else 0.0,
+                1.0 if "偏好" in text else 0.0,
+            ])
+        return vectors
 
 
 def test_short_term():
@@ -49,6 +65,25 @@ def test_working():
     mem.clear()
     assert mem.get_task_context() == ""
     print("  OK  working memory (task/steps/clear)")
+
+
+def test_long_term_namespace_and_filters():
+    store_path = os.path.join(tempfile.mkdtemp(), "memory.json")
+    embedder = FakeEmbedder()
+
+    mem_a = LongTermMemory(namespace="project_a", persist_path=store_path, embedder=embedder)
+    mem_b = LongTermMemory(namespace="project_b", persist_path=store_path, embedder=embedder)
+    mem_a.save("用户偏好：默认使用中文回复", category="preference", importance=0.9, tags=["preference"])
+    mem_b.save("用户偏好：默认使用英文回复", category="preference", importance=0.9, tags=["preference"])
+
+    recall_a = mem_a.recall("回复偏好", top_k=5, category="preference", tags=["preference"])
+    recall_b = mem_b.recall("回复偏好", top_k=5, category="preference", tags=["preference"])
+
+    assert recall_a and "中文" in recall_a[0]["content"]
+    assert recall_b and "英文" in recall_b[0]["content"]
+    assert all(item["namespace"] == "project_a" for item in recall_a)
+    assert all(item["namespace"] == "project_b" for item in recall_b)
+    print("  OK  long term memory namespace/filtering")
 
 
 if __name__ == "__main__":

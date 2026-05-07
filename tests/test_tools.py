@@ -14,6 +14,31 @@ from src.tools.csv_import_tool import CsvImportTool
 from src.path_utils import normalize_project_name, table_name_from_filename
 
 
+def test_tool_policies_are_declared():
+    tools = [
+        CalculatorTool(),
+        SQLTool(),
+        FileReadTool(),
+        FileListTool(),
+        PythonTool(),
+        SearchTool(),
+        ChartTool(),
+        CsvImportTool(),
+    ]
+    for tool in tools:
+        policy = tool.policy_dict()
+        assert policy["risk_level"] in {"low", "medium", "high"}
+        assert isinstance(policy["requires_confirmation"], bool)
+        assert isinstance(policy["read_only"], bool)
+        assert isinstance(policy["destructive"], bool)
+        assert isinstance(policy["allowed_scopes"], list)
+        annotations = tool.policy.to_mcp_annotations()
+        assert set(annotations) == {"readOnlyHint", "destructiveHint", "idempotentHint", "openWorldHint"}
+    assert PythonTool().policy.requires_confirmation is True
+    assert CsvImportTool().policy.destructive is True
+    print("  OK  tool policies declared")
+
+
 def test_calculator_basic():
     calc = CalculatorTool()
     assert calc.execute(expression="2 + 3") == "5"

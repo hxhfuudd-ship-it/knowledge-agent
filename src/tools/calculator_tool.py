@@ -2,12 +2,18 @@
 import ast
 import math
 import operator
-from .base import Tool
+from .base import Tool, ToolPolicy
 
 
 class CalculatorTool(Tool):
     name = "calculator"
     description = "执行数学计算。支持基本运算和常用数学函数（sin, cos, sqrt, log, pow 等）。"
+    policy = ToolPolicy(
+        risk_level="low",
+        read_only=True,
+        idempotent=True,
+        description="纯内存数学计算，不访问外部资源。",
+    )
     parameters = {
         "type": "object",
         "properties": {

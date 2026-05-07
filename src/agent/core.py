@@ -18,10 +18,7 @@ from ..skills.data_analysis import DataAnalysisSkill
 from ..skills.sql_expert import SQLExpertSkill
 from ..skills.report_gen import ReportGenSkill
 from ..skills.doc_qa import DocQASkill
-from ..memory.short_term import ShortTermMemory
-from ..memory.long_term import LongTermMemory
-from ..memory.episodic import EpisodicMemory
-from ..memory.working import WorkingMemory
+from ..memory import build_memory_bundle
 from ..llm import create_llm_client
 from ..observability import TraceRecorder
 from .. import config
@@ -55,9 +52,17 @@ BASE_SYSTEM_PROMPT = """你是一个数据分析助手，可以帮助用户查�
 
 
 class Agent:
-    def __init__(self, model=None, max_iterations=None):
+    def __init__(self, model=None, max_iterations=None, enforce_tool_permissions=None, approved_tools=None):
         self.llm = create_llm_client(model=model)
         self.max_iterations = max_iterations or config.get("agent.max_iterations", 10)
+        self.enforce_tool_permissions = (
+            config.get("agent.enforce_tool_permissions", False)
+            if enforce_tool_permissions is None
+            else enforce_tool_permissions
+        )
+        configured_approved_tools = config.get("agent.approved_tools", [])
+        self.approved_tools = set(configured_approved_tools if approved_tools is None else approved_tools)
+        self.memory_namespace = config.get("memory.namespace", "default")
         self.registry = ToolRegistry()
         skill_strategy = config.get("agent.skill_match", "hybrid")
         self.skill_registry = SkillRegistry(match_strategy=skill_strategy)
@@ -66,10 +71,11 @@ class Agent:
         self.trace = TraceRecorder()
 
         max_messages = config.get("memory.short_term_max_messages", 20)
-        self.short_term = ShortTermMemory(max_messages=max_messages)
-        self.long_term = LongTermMemory()
-        self.episodic = EpisodicMemory()
-        self.working = WorkingMemory()
+        memory_bundle = build_memory_bundle(namespace=self.memory_namespace, short_term_max_messages=max_messages)
+        self.short_term = memory_bundle["short_term"]
+        self.long_term = memory_bundle["long_term"]
+        self.episodic = memory_bundle["episodic"]
+        self.working = memory_bundle["working"]
 
         self._register_default_tools()
         self._register_default_skills()
@@ -90,7 +96,9 @@ class Agent:
         if self.short_term.summary:
             parts.append("\n早期对话摘要：\n%s" % self.short_term.summary)
 
-        memories = self.long_term.recall(user_message, top_k=3)
+        memory_context = self.get_memory_context(user_message)
+
+        memories = memory_context["long_term"]
         if memories:
             mem_text = "\n".join("- %s" % m["content"] for m in memories if m["relevance"] > 0.1)
             if mem_text:
@@ -100,7 +108,7 @@ class Agent:
         if episodic_ctx:
             parts.append("\n%s" % episodic_ctx)
 
-        task_ctx = self.working.get_task_context()
+        task_ctx = memory_context["working"]
         if task_ctx:
             parts.append("\n当前任务状态：\n%s" % task_ctx)
 
@@ -129,19 +137,43 @@ class Agent:
             usage=getattr(response, "usage", None),
         )
 
+    def _check_tool_permission(self, tool):
+        policy = tool.policy
+        approved = tool.name in self.approved_tools
+        if not self.enforce_tool_permissions:
+            return True, "权限策略仅审计，不阻断", approved
+        if policy.requires_confirmation and not approved:
+            return False, "工具 %s 需要用户确认后才能执行" % tool.name, approved
+        return True, "权限检查通过", approved
+
     def _execute_tool(self, name, input_data):
         tool = self.registry.get(name)
         if not tool:
-            return "未知工具: %s" % name
+            return "未知工具: %s" % name, {}
+        allowed, reason, approved = self._check_tool_permission(tool)
+        policy_meta = {
+            "risk_level": tool.policy.risk_level,
+            "requires_confirmation": tool.policy.requires_confirmation,
+            "approved": approved,
+            "read_only": tool.policy.read_only,
+            "destructive": tool.policy.destructive,
+            "external_access": tool.policy.external_access,
+            "allowed_scopes": list(tool.policy.allowed_scopes),
+            "permission_enforced": self.enforce_tool_permissions,
+            "permission_allowed": allowed,
+            "permission_reason": reason,
+        }
+        if not allowed:
+            return "权限拒绝: %s" % reason, policy_meta
         try:
-            return tool.execute(**input_data)
+            return tool.execute(**input_data), policy_meta
         except Exception as e:
             logger.error("工具 %s 执行失败: %s", name, e)
-            return "工具执行错误: %s" % e
+            return "工具执行错误: %s" % e, policy_meta
 
     @staticmethod
     def _is_tool_success(result: str) -> bool:
-        failure_prefixes = ("未知工具", "工具执行错误", "错误", "执行错误", "SQL 执行错误", "计算错误")
+        failure_prefixes = ("未知工具", "工具执行错误", "权限拒绝", "错误", "执行错误", "SQL 执行错误", "计算错误")
         return not str(result).startswith(failure_prefixes)
 
     def chat(self, user_message):
@@ -189,7 +221,7 @@ class Agent:
         tool_results = []
         for tc in response.tool_calls:
             start = time.perf_counter()
-            result = self._execute_tool(tc.name, tc.input)
+            result, policy_meta = self._execute_tool(tc.name, tc.input)
             duration_ms = (time.perf_counter() - start) * 1000
             success = self._is_tool_success(result)
             self.tool_call_log.append({
@@ -198,8 +230,9 @@ class Agent:
                 "output": result,
                 "duration_ms": round(duration_ms, 2),
                 "success": success,
+                "policy": policy_meta,
             })
-            self.trace.add_tool_call(tc.name, duration_ms, success, tc.input, result)
+            self.trace.add_tool_call(tc.name, duration_ms, success, tc.input, result, policy=policy_meta)
             self.working.add_step("调用 %s" % tc.name, result[:200])
             tool_results.append(self.llm.format_tool_result(tc.id, result))
         return tool_results
@@ -213,7 +246,10 @@ class Agent:
             summary = "用户问: %s → %s" % (user_message[:50], response_text[:80])
             self.episodic.add_episode(
                 summary,
-                {"tools_used": [tc["tool"] for tc in self.tool_call_log]},
+                {
+                    "tools_used": [tc["tool"] for tc in self.tool_call_log],
+                    "namespace": self.memory_namespace,
+                },
             )
 
     def _build_result(self, text, matched_skill):
@@ -225,14 +261,43 @@ class Agent:
         }
 
     def save_memory(self, content, category="general"):
-        self.long_term.save(content, category=category)
+        self.long_term.save(
+            content,
+            category=category,
+            metadata={"source": "manual", "agent": "knowledge-agent"},
+            importance=0.6 if category == "preference" else 0.5,
+            tags=[category],
+        )
 
     def get_memory_stats(self):
         return {
             "short_term": len(self.short_term),
             "long_term": self.long_term.count(),
-            "episodic": len(self.episodic.episodes),
+            "episodic": self.episodic.count(),
         }
+
+    def get_memory_context(self, query=None):
+        namespace = getattr(self, "memory_namespace", config.get("memory.namespace", "default"))
+        return {
+            "namespace": namespace,
+            "short_term": self.short_term.get_context() if hasattr(self.short_term, "get_context") else {},
+            "long_term": self.long_term.recall(query or "", top_k=3) if query else [],
+            "episodic": self.episodic.get_recent(3) if hasattr(self.episodic, "get_recent") else [],
+            "working": self.working.get_task_context(),
+        }
+
+    def set_memory_namespace(self, namespace):
+        self.memory_namespace = namespace or "default"
+        config.set("memory.namespace", self.memory_namespace)
+        max_messages = config.get("memory.short_term_max_messages", 20)
+        memory_bundle = build_memory_bundle(namespace=self.memory_namespace, short_term_max_messages=max_messages)
+        self.short_term = memory_bundle["short_term"]
+        self.long_term = memory_bundle["long_term"]
+        self.episodic = memory_bundle["episodic"]
+        self.working = memory_bundle["working"]
+        self.conversation = []
+        self.tool_call_log = []
+        self.trace = TraceRecorder()
 
     def reset(self):
         self.conversation = []

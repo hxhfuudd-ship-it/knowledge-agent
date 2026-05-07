@@ -72,6 +72,39 @@ flowchart TD
 - `calculator`：AST 数学表达式求值。
 - `csv_import`：路径和表名校验。
 
+### Tool Permissions
+
+标准 Agent 不能只把工具暴露给模型，还要在 runtime 层判断工具是否安全可执行。OpenAI Agents SDK 的 guardrails / human-in-the-loop、Anthropic Claude Code 的权限架构，以及 MCP 的 tool annotations 都体现了同一个原则：工具 schema 只是“怎么调用”，权限策略才是“能不能调用”。
+
+本项目在 `src/tools/base.py` 增加了 `ToolPolicy`：
+
+- `risk_level`：`low` / `medium` / `high`。
+- `requires_confirmation`：高风险工具是否需要用户确认。
+- `read_only` / `destructive` / `idempotent` / `external_access`：描述工具行为。
+- `allowed_scopes`：声明工具允许访问的资源边界。
+
+Agent 执行工具前会进行权限检查：
+
+- 默认 `agent.enforce_tool_permissions=false`：只审计，不阻断，适合学习和 demo。
+- 开启 `agent.enforce_tool_permissions=true`：需要确认的工具必须出现在 `approved_tools` 中。
+- 每次工具调用都会在 `tool_calls` 和 `trace` 中记录 policy、风险等级、审批状态和权限检查结果。
+
+示例：
+
+```yaml
+agent:
+  enforce_tool_permissions: true
+  approved_tools: ["python_exec"]
+```
+
+当前风险分级：
+
+| 工具 | 风险 | 原因 |
+|---|---|---|
+| `calculator` / `list_files` / `rag_index_stats` | low | 只读或纯计算 |
+| `sql_query` / `read_file` / `web_search` / `create_chart` / `rag_search` | medium | 涉及数据库、文件、外网、artifact 或本地索引缓存 |
+| `python_exec` / `csv_import` | high | 代码执行或写数据库，需要显式确认 |
+
 ## 5. Skills
 
 位置：`src/skills/`、`skills/*/SKILL.md`
@@ -118,7 +151,14 @@ Tool 是“能做什么”，Skill 是“如何组织一组工具完成某类任
 - 情景记忆：历史交互摘要。
 - 工作记忆：当前任务执行步骤。
 
-标准 Agent 项目通常不会只保存原始 messages，还会把长期偏好、历史发现和任务状态分开管理。
+标准 Agent 项目通常不会只保存原始 messages，还会把长期偏好、历史发现和任务状态分开管理。本项目按四层 memory 组织：
+
+- `ShortTermMemory`：保存当前对话窗口，超长时压缩早期内容。
+- `LongTermMemory`：保存跨会话偏好、事实和洞察，支持向量召回、category、tags、importance、namespace。
+- `EpisodicMemory`：保存历史交互摘要，按 namespace 隔离项目。
+- `WorkingMemory`：保存当前任务步骤和中间结果，不做长期持久化。
+
+Agent 构建 prompt 时只注入与当前问题相关的长期记忆和最近情景记忆，避免把所有历史无差别塞进上下文。
 
 ## 8. MCP
 
@@ -131,6 +171,18 @@ Tool 是“能做什么”，Skill 是“如何组织一组工具完成某类任
 - Server 负责封装数据库、知识库等资源。
 
 MCP 的价值是让 Agent 可以接入更多外部系统，同时保持工具发现和调用方式一致。
+
+当前项目的 MCP 已补齐一版“标准学习骨架”：
+
+- `initialize` / `notifications/initialized`
+- `tools/list` / `tools/call`
+- `resources/list` / `resources/read`
+- `prompts/list` / `prompts/get`
+- `outputSchema` 与 `structuredContent`
+- `annotations`：声明 `readOnlyHint`、`destructiveHint`、`idempotentHint`、`openWorldHint`
+- JSON-RPC 标准错误返回
+
+这使得它不只是“能跑”，而是更接近标准 MCP 项目该有的结构。
 
 ## 9. Observability
 

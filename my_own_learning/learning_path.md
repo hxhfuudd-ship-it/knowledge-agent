@@ -159,6 +159,35 @@ make run-app
 - 写关键词和语义描述。
 - 补路由测试。
 
+## 阶段 5.5：理解 Tool Permissions
+
+源码入口：
+
+- `src/tools/base.py`
+- `src/agent/core.py`
+- `tests/test_tools.py`
+- `tests/test_agent.py`
+
+重点理解：
+
+- Tool schema 是给模型看的，ToolPolicy 是给 Agent runtime 用的。
+- 为什么 `python_exec`、`csv_import` 这类工具属于高风险工具。
+- 为什么 prompt 约束不能替代工具层校验。
+- `enforce_tool_permissions=false` 和 `true` 的区别。
+- trace 中如何记录 risk、approval、scope 和 permission result。
+
+要能回答：
+
+- Tool permission 和 Tool schema 有什么区别？
+- 什么情况下需要 human-in-the-loop？
+- 为什么 MCP annotations 只是 hint，不是安全边界？
+
+练习：
+
+- 给一个新工具补 `ToolPolicy`。
+- 开启 `agent.enforce_tool_permissions=true`，验证高风险工具未审批会被拒绝。
+- 把工具加入 `approved_tools`，验证同一个调用可以执行。
+
 ## 阶段 6：理解 Memory
 
 源码入口：
@@ -176,17 +205,21 @@ make run-app
 - 情景记忆：一次交互的摘要。
 - 工作记忆：当前任务步骤和状态。
 - 为什么对话太长需要压缩。
+- 为什么长期记忆需要 namespace、category、tags 和 importance。
+- 为什么只召回相关记忆，而不是把所有历史注入 prompt。
 
 要能回答：
 
 - Memory 和 RAG 的区别是什么？
 - 为什么不能把所有历史消息都塞进上下文？
 - 长期记忆应该保存什么，不应该保存什么？
+- 项目切换时为什么 memory namespace 也要切换？
 
 练习：
 
 - 让 Agent 记住一个偏好。
 - 在后续对话中验证是否能召回。
+- 创建两个不同项目，验证长期记忆不会串到另一个项目。
 
 ## 阶段 7：理解 MCP
 

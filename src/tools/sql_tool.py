@@ -1,7 +1,7 @@
 """SQL 查询工具：执行自然语言转 SQL 查询"""
 import sqlite3
 from pathlib import Path
-from .base import Tool
+from .base import Tool, ToolPolicy
 from .. import config
 
 _project_root = Path(__file__).parent.parent.parent
@@ -11,6 +11,13 @@ class SQLTool(Tool):
     name = "sql_query"
     _description_base = "对 SQLite 数据库执行 SQL 查询。只允许 SELECT 查询，禁止修改数据。"
     description = _description_base
+    policy = ToolPolicy(
+        risk_level="medium",
+        read_only=True,
+        idempotent=True,
+        allowed_scopes=("data/databases/default.db",),
+        description="只允许 SQLite SELECT 查询；仍需限制敏感表和输出规模。",
+    )
     parameters = {
         "type": "object",
         "properties": {

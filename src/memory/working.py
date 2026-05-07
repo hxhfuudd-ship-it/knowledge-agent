@@ -1,16 +1,19 @@
 """工作记忆：当前任务的中间状态"""
 from typing import Any, Dict, Optional
+from .. import config
 
 
 class WorkingMemory:
     """保存当前任务执行过程中的中间状态"""
 
-    def __init__(self):
+    def __init__(self, namespace: str = None):
+        self.namespace = namespace or config.get("memory.namespace", "default")
         self._state: Dict[str, Any] = {}
         self._task_context: Dict[str, Any] = {
             "current_task": None,
             "steps_completed": [],
             "intermediate_results": {},
+            "namespace": self.namespace,
         }
 
     def set(self, key: str, value: Any):
@@ -23,6 +26,7 @@ class WorkingMemory:
         self._task_context["current_task"] = task_description
         self._task_context["steps_completed"] = []
         self._task_context["intermediate_results"] = {}
+        self._task_context["namespace"] = self.namespace
 
     def add_step(self, step: str, result: Any = None):
         self._task_context["steps_completed"].append(step)
@@ -53,4 +57,5 @@ class WorkingMemory:
             "current_task": None,
             "steps_completed": [],
             "intermediate_results": {},
+            "namespace": self.namespace,
         }

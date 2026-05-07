@@ -5,8 +5,12 @@
 ## 参考的一手资料
 
 - OpenAI Agents SDK Tracing：<https://openai.github.io/openai-agents-python/tracing/>
+- OpenAI Agents SDK Guardrails：<https://openai.github.io/openai-agents-python/guardrails/>
+- OpenAI Agents SDK Human-in-the-loop：<https://openai.github.io/openai-agents-python/human_in_the_loop/>
 - Agent Skills Specification：<https://agentskills.io/specification>
 - Anthropic Agent Skills Docs：<https://docs.claude.com/en/docs/agents-and-tools/agent-skills>
+- Anthropic Claude Code Security：<https://docs.anthropic.com/en/docs/claude-code/security>
+- MCP Tool Specification：<https://modelcontextprotocol.io/specification/2025-06-18/server/tools>
 - LangSmith / AgentEvals Trajectory Evaluation：<https://docs.langchain.com/langsmith/trajectory-evals>
 - Google ADK Evaluation：<https://google.github.io/adk-docs/evaluate/>
 - LangGraph Durable Execution：<https://docs.langchain.com/oss/python/langgraph/durable-execution>
@@ -38,18 +42,22 @@
 
 - 每个工具要有稳定名称、清晰描述、参数 schema 和统一执行接口。
 - 工具层必须自己做安全校验，不能只依赖 prompt。
+- 工具需要声明风险等级、读写属性、外部访问和资源边界。
+- 高风险工具需要 human-in-the-loop 或显式 approval gate。
 - 工具调用结果要能进入 trace / trajectory。
 
 本项目现状：
 
 - `src/tools/base.py` 定义统一 Tool 接口和 ToolRegistry。
+- `ToolPolicy` 声明 `risk_level`、`requires_confirmation`、`read_only`、`destructive`、`external_access` 和 `allowed_scopes`。
 - SQL、文件、Python、CSV 等工具都有基本安全边界。
-- Agent trace 会记录工具名、输入摘要、输出摘要、耗时和成功状态。
+- Agent trace 会记录工具名、输入摘要、输出摘要、耗时、成功状态和权限策略。
+- 默认只审计不阻断；开启 `agent.enforce_tool_permissions=true` 后，高风险工具必须加入 `approved_tools`。
 
 判断：
 
-- 结构清晰，适合学习 Tool Calling。
-- 后续建议增加工具权限分级，例如 safe / medium / high-risk，并对高风险工具增加用户确认。
+- 结构清晰，已经比“只有 Tool schema”的示例更接近标准 Agent 工程。
+- 当前是学习型权限门禁：能表达审批机制和审计链路，但不是完整生产级用户会话审批系统。
 
 ## 3. Agent Skills
 
@@ -146,7 +154,29 @@
 - 当前 RAG 原理链路清晰，已具备标准学习项目需要的检索、引用和检索评估能力。
 - 下一步可以补 metadata filter 和 query rewrite。
 
-## 7. Observability / Trace
+## 7. Memory
+
+标准做法：
+
+- Memory 不等于把完整聊天记录无限塞进 prompt。
+- 常见做法会区分短期对话窗口、长期用户偏好/事实、情景交互摘要和当前任务状态。
+- 长期记忆需要按用户、项目或会话做 namespace 隔离，并支持 metadata filter。
+- 注入上下文时应只召回相关记忆，避免过期、无关或跨项目信息污染回答。
+
+本项目现状：
+
+- `src/memory/` 已拆成 short-term、long-term、episodic、working 四层。
+- `LongTermMemory` 支持 namespace、category、tags、importance 和向量召回。
+- `EpisodicMemory` 按 namespace 过滤最近交互。
+- `Agent` 通过 `get_memory_context()` 统一构建 memory 上下文，只注入相关长期记忆和最近情景记忆。
+- Streamlit 项目切换会同步切换 memory namespace。
+
+判断：
+
+- 当前已经达到学习型标准 Agent 的 memory 骨架。
+- 后续生产化可以继续补用户确认写入、记忆过期策略、冲突合并和隐私删除。
+
+## 8. Observability / Trace
 
 标准做法：
 
@@ -165,12 +195,14 @@
 - 学习项目已经合格。
 - 后续可改成更标准的 trace/span 层级结构，支持 trace_id、span_id、parent_id、metadata 和导出文件。
 
-## 8. 安全与权限
+## 9. 安全与权限
 
 标准做法：
 
 - Agent 工具越强，安全边界越重要。
 - 高风险工具需要隔离、权限控制、审计和用户确认。
+- 权限策略必须在 Agent runtime 或工具代码中执行，不能只依赖 prompt。
+- MCP annotations 只是给 client/model 的行为提示，不应替代真实权限校验。
 - 第三方 skills 也应该被视为潜在风险来源，只安装可信来源。
 
 本项目现状：
@@ -178,12 +210,35 @@
 - SQL 只允许安全查询。
 - 文件和 CSV 做路径边界校验。
 - Python 使用子进程沙箱、超时、输出截断和白名单限制。
+- `ToolPolicy` 已覆盖所有本地工具，`python_exec` 和 `csv_import` 标为高风险并要求确认。
+- Agent 记录每次工具调用的 risk、approval、read/write、scope 和 enforcement 状态。
+- MCP Server 的 `tools/list` 返回 `annotations`，包括只读、破坏性、幂等和外部访问 hint。
 - 已安装 Codex 安全相关 skills：`security-best-practices`、`security-threat-model`，重启 Codex 后可用于继续审查。
 
 判断：
 
-- 已具备基础安全意识。
-- 后续建议补工具权限模型和 threat model 文档。
+- 当前已经具备学习型标准 Agent 的工具权限模型。
+- 后续如果生产化，应补真正的 UI 用户确认流、按用户/会话的审批 token、审计日志落盘和 threat model 文档。
+
+## 10. MCP
+
+标准做法：
+
+- MCP 需要支持标准初始化、工具发现、工具调用、资源读取，最好也有 prompts 能力。
+- 常见实现会包含 `notifications/initialized`，并支持结构化输出。
+- 错误应该走 JSON-RPC 标准错误格式，而不是纯文本拼接。
+
+本项目现状：
+
+- 当前是自研 MCP client/server 示例，并且已经补到一版学习型标准骨架。
+- 已覆盖 `initialize`、`notifications/initialized`、`tools/list`、`tools/call`、`resources/list`、`resources/read`、`prompts/list`、`prompts/get`。
+- 工具支持 `outputSchema` / `structuredContent` / `annotations`，错误也走 JSON-RPC。
+- 配套补了协议层测试，避免“写得像标准、跑起来不是标准”。
+
+判断：
+
+- 现在已经比原来的轻量示例更接近标准 MCP 项目，足够作为学习和面试展示。
+- 后续如果要继续拔高，可以再补取消、分页、订阅和更完整的 capability 协商。
 
 ## 总体结论
 
@@ -196,6 +251,6 @@
 
 最值得继续补的三件事：
 
-1. RAG eval：扩大评估集，并区分 retrieval eval 和 response eval。
-2. Tool permissions：补工具风险等级和用户确认机制。
-3. Skills standardization：尝试把当前 `src/skills/` 映射到 `SKILL.md` 文件系统标准。
+1. Memory governance：补记忆写入确认、过期、冲突合并和隐私删除。
+2. Observability：把 trace 改成更标准的 trace/span 层级结构。
+3. Threat model：补一份面向工具、RAG、MCP 和外部依赖的威胁模型。

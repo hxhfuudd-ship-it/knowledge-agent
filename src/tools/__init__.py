@@ -1,4 +1,4 @@
-from .base import Tool, ToolRegistry
+from .base import Tool, ToolPolicy, ToolRegistry
 from .sql_tool import SQLTool
 from .calculator_tool import CalculatorTool
 from .file_tool import FileReadTool, FileListTool
@@ -8,7 +8,7 @@ from .chart_tool import ChartTool
 from .csv_import_tool import CsvImportTool
 
 __all__ = [
-    "Tool", "ToolRegistry",
+    "Tool", "ToolPolicy", "ToolRegistry",
     "SQLTool", "CalculatorTool", "FileReadTool", "FileListTool",
     "PythonTool", "SearchTool", "ChartTool", "CsvImportTool",
 ]

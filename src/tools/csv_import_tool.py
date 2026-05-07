@@ -1,7 +1,7 @@
 """CSV 导入工具：将 CSV 文件导入 SQLite 数据库"""
 import logging
 from pathlib import Path
-from .base import Tool
+from .base import Tool, ToolPolicy
 from .. import config
 from ..path_utils import is_sql_identifier, resolve_under
 
@@ -16,6 +16,15 @@ class CsvImportTool(Tool):
     description = (
         "将 CSV 文件导入 SQLite 数据库。导入后可用 sql_query 工具查询。\n"
         "文件必须在 data/ 目录下。导入后会自动创建表。"
+    )
+    policy = ToolPolicy(
+        risk_level="high",
+        requires_confirmation=True,
+        read_only=False,
+        destructive=True,
+        idempotent=False,
+        allowed_scopes=("data", "data/databases/default.db"),
+        description="会把 CSV 写入 SQLite；replace 模式可能覆盖已有表。",
     )
     parameters = {
         "type": "object",
