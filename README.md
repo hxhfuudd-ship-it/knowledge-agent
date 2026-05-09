@@ -1,225 +1,203 @@
-# 个人知识库数据 Agent
+<div align="center">
 
-通过构建一个完整的数据 Agent，系统学习 Agent 开发核心技术栈。
+# Knowledge Agent
 
-## 技术栈
+**个人知识库数据 Agent — 系统学习 Agent 开发核心技术栈**
 
-- LLM：Claude API（Anthropic）
-- Embedding：sentence-transformers（本地模型）
-- 向量存储：纯 Python 实现（JSON 持久化 + 余弦相似度）
-- 数据库：SQLite
-- 前端：Streamlit
-- MCP：自研 Python MCP Client/Server（JSON-RPC stdio 通信）
+**Personal Knowledge Base Agent — Learn core Agent development technologies by building.**
 
-## 快速开始
+[![Python](https://img.shields.io/badge/Python-3.11+-3776ab?logo=python&logoColor=white)](https://python.org)
+[![Claude API](https://img.shields.io/badge/Claude_API-Anthropic-191919?logo=anthropic&logoColor=white)](https://anthropic.com)
+[![Streamlit](https://img.shields.io/badge/Streamlit-UI-ff4b4b?logo=streamlit&logoColor=white)](https://streamlit.io)
+[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](./LICENSE)
+
+[中文](#功能特性) · [English](#features)
+
+</div>
+
+---
+
+## 功能特性
+
+| 模块 | 说明 |
+|------|------|
+| **ReAct Agent** | 感知 → 思考 → 行动 → 观察循环，支持 Tool Use 和 Skill 路由 |
+| **6 个工具** | SQL 查询、数学计算、文件读取、Python 沙箱、网络搜索、数据可视化 |
+| **4 个技能** | 数据分析、SQL 专家、报告生成、文档问答 |
+| **RAG 检索增强** | 文档加载 → 切片 → Embedding → 混合检索（向量 + BM25）→ 重排序 |
+| **4 层记忆系统** | 短期（滑动窗口）+ 长期（向量持久化）+ 情景（交互摘要）+ 工作（任务状态） |
+| **多 Agent 协作** | 编排器实现任务分解 → 子 Agent → 结果聚合 |
+| **MCP 协议** | 自研 Python MCP Client/Server（JSON-RPC stdio 通信） |
+| **评估体系** | 基准测试 + RAG 检索评估 + 回答质量评估 |
+
+---
+
+## Features
+
+| Module | Details |
+|--------|---------|
+| **ReAct Agent** | Perceive → Think → Act → Observe loop with Tool Use and Skill routing |
+| **6 Tools** | SQL query, math calculator, file reader, Python sandbox, web search, chart generation |
+| **4 Skills** | Data analysis, SQL expert, report generation, document QA |
+| **RAG Pipeline** | Document loading → Chunking → Embedding → Hybrid retrieval (Vector + BM25) → Reranking |
+| **4-Layer Memory** | Short-term (sliding window) + Long-term (vector) + Episodic (summaries) + Working (task state) |
+| **Multi-Agent** | Orchestrator for task decomposition → sub-agents → aggregation |
+| **MCP Protocol** | Custom Python MCP Client/Server (JSON-RPC stdio) |
+| **Evaluation** | Benchmarks + RAG retrieval eval + response quality eval |
+
+---
+
+## 技术栈 / Tech Stack
+
+| 层级 / Layer | 技术 / Technology |
+|------|------|
+| LLM | Claude API (Anthropic) |
+| Embedding | sentence-transformers（本地模型） |
+| 向量存储 / Vector Store | 纯 Python 实现（JSON 持久化 + 余弦相似度） |
+| 数据库 / Database | SQLite |
+| 前端 / Frontend | Streamlit |
+| MCP | 自研 Python Client/Server |
+
+---
+
+## 快速开始 / Getting Started
+
+### 环境要求 / Prerequisites
+
+- Python >= 3.11
+- pip
+
+### 安装运行 / Install & Run
 
 ```bash
-# 1. 安装运行依赖
+# 安装依赖 / Install dependencies
 pip install -r requirements.txt
 
-# 2. 配置环境变量
+# 配置环境变量 / Configure environment
 cp .env.example .env
 # 编辑 .env，填入 ANTHROPIC_API_KEY
 
-# 3. 初始化数据库
+# 初始化数据库 / Initialize database
 make init-db
 
-# 4. 检查本地环境
+# 检查环境 / Check environment
 make doctor
 
-# 5. 启动界面
+# 启动界面 / Start UI
 make run-app
 ```
 
-开发和运行测试时安装额外依赖：
+### 开发与测试 / Development
 
 ```bash
 pip install -r requirements-dev.txt
+make test    # 运行测试
+make check   # lint + test
 ```
 
-## 项目结构
+---
+
+## 项目结构 / Project Structure
 
 ```
 knowledge-agent/
-├── config/settings.yaml       # 全局配置（模型、RAG 参数、记忆等）
+├── config/settings.yaml       # 全局配置 / Global config
 ├── src/
-│   ├── agent/core.py          # Agent 核心 ReAct 循环
-│   ├── tools/                 # 工具层（6 个工具）
-│   │   ├── sql_tool.py        # SQL 查询（Text-to-SQL）
-│   │   ├── calculator_tool.py # 安全数学计算（AST 求值）
-│   │   ├── file_tool.py       # 文件读取（路径遍历防护）
-│   │   ├── python_tool.py     # Python 沙箱执行
-│   │   ├── search_tool.py     # 网络搜索（演示模式）
-│   │   └── chart_tool.py      # 数据可视化（matplotlib）
-│   ├── skills/                # 技能层（4 个 Skill）
-│   │   ├── data_analysis.py   # 数据分析
-│   │   ├── sql_expert.py      # SQL 专家
-│   │   ├── report_gen.py      # 报告生成
-│   │   └── doc_qa.py          # 文档问答
-│   ├── rag/                   # RAG 检索增强
-│   │   ├── loader.py          # 文档加载（PDF/MD/TXT）
-│   │   ├── chunker.py         # 文本切片（固定/递归/语义）
-│   │   ├── embedder.py        # Embedding（本地模型/Voyage/哈希回退）
-│   │   ├── retriever.py       # 混合检索（向量 + BM25）
-│   │   ├── reranker.py        # 重排序
-│   │   └── vector_store.py    # 纯 Python 向量存储
-│   ├── memory/                # 记忆系统（4 种类型）
-│   │   ├── short_term.py      # 短期记忆（滑动窗口）
-│   │   ├── long_term.py       # 长期记忆（向量持久化）
-│   │   ├── episodic.py        # 情景记忆（交互摘要）
-│   │   └── working.py         # 工作记忆（任务状态）
-│   ├── multi_agent/           # 多 Agent 协作
-│   │   └── orchestrator.py    # 编排器（任务分解 → 子 Agent → 聚合）
-│   ├── mcp/client.py          # MCP 客户端
-│   ├── eval/                  # 评估体系
-│   │   ├── metrics.py         # 评估指标
-│   │   ├── benchmark.py       # 基准测试
-│   │   └── test_cases.yaml    # 测试用例
-│   ├── finetune/              # 微调模块
-│   │   ├── data_prep.py       # 数据准备
-│   │   ├── train.py           # LoRA 训练
-│   │   └── inference.py       # 推理
-│   └── config.py              # 配置加载器
-├── mcp_servers/               # MCP Server 进程
-│   ├── sqlite_server.py       # SQLite MCP Server
-│   └── knowledge_server.py    # 知识库 MCP Server
-├── skills/                    # 标准 Agent Skills 文件系统（SKILL.md）
+│   ├── agent/core.py          # ReAct 循环 / ReAct loop
+│   ├── tools/                 # 工具层 / Tools (6)
+│   ├── skills/                # 技能层 / Skills (4)
+│   ├── rag/                   # RAG 检索增强 / RAG pipeline
+│   ├── memory/                # 记忆系统 / Memory system (4 types)
+│   ├── multi_agent/           # 多 Agent / Multi-agent orchestration
+│   ├── mcp/                   # MCP 客户端 / MCP client
+│   ├── eval/                  # 评估体系 / Evaluation
+│   └── finetune/              # 微调模块 / Fine-tuning
+├── mcp_servers/               # MCP Server 进程 / MCP servers
 ├── data/
-│   ├── databases/default.db   # SQLite 模拟数据（6 张表）
-│   └── documents/             # 知识库文档
-├── tests/                     # 测试文件
-├── app.py                     # Streamlit 主界面
-└── requirements.txt
+│   ├── databases/default.db   # SQLite 模拟数据 / Sample data
+│   └── documents/             # 知识库文档 / Knowledge base docs
+├── tests/                     # 测试 / Tests
+└── app.py                     # Streamlit 主界面 / Main UI
 ```
 
-## 核心模块说明
+---
 
-更完整的标准 Agent 架构说明见：`docs/agent_architecture.md`。
-
-### Agent 核心（ReAct 循环）
-感知 → 思考 → 行动 → 观察，循环直到任务完成。支持 Tool Use 和 Skill 路由。
+## 核心架构 / Architecture
 
 ### Tool vs Skill
-- Tool 是原子操作（查 SQL、读文件、算数学）
-- Skill 是组合能力（数据分析 = 查数据 + 处理 + 可视化 + 结论）
-- `src/skills/` 是运行时 SkillRegistry，`skills/*/SKILL.md` 是标准文件系统说明层
 
-### Tool Permissions
-每个工具都有 `ToolPolicy`，声明风险等级、是否只读、是否需要确认、是否访问外部系统和允许资源范围。默认配置只做审计不阻断；开启 `agent.enforce_tool_permissions=true` 后，`python_exec`、`csv_import` 等高风险工具必须进入 `approved_tools` 才能执行。工具调用记录和 trace 会保留 policy 信息，便于学习和排查。
+- **Tool** — 原子操作（查 SQL、读文件、算数学）/ Atomic operations
+- **Skill** — 组合能力（数据分析 = 查数据 + 处理 + 可视化 + 结论）/ Composite capabilities
 
-### RAG 流程
-文档加载 → 切片 → Embedding → 向量存储 → 混合检索（向量 + BM25）→ 重排序 → 上下文注入
+### RAG 流程 / RAG Pipeline
 
-### 记忆系统
-短期（对话窗口）+ 长期（向量持久化）+ 情景（历史摘要）+ 工作（任务状态）。长期记忆支持 namespace、category、tags、importance 和相关性召回，避免不同项目记忆串用。
+```
+文档加载 → 切片 → Embedding → 向量存储 → 混合检索 → 重排序 → 上下文注入
+Load → Chunk → Embed → Store → Hybrid Retrieve → Rerank → Context Injection
+```
 
-### MCP 协议
-通过 JSON-RPC stdio 通信，将数据源封装为标准化服务，并补齐初始化、工具发现、资源读取、prompts 和结构化输出。
+### 记忆系统 / Memory System
 
-## Embedding 模型
+| 类型 / Type | 说明 / Description |
+|------|------|
+| 短期 / Short-term | 对话滑动窗口 / Sliding window |
+| 长期 / Long-term | 向量持久化，支持 namespace 隔离 / Vector persistence with namespace isolation |
+| 情景 / Episodic | 历史交互摘要 / Interaction summaries |
+| 工作 / Working | 当前任务状态 / Current task state |
 
-配置 `config/settings.yaml` 中的 `rag.embedding_model`：
+---
 
-| 值 | 模型 | 维度 | 适用 |
+## Embedding 模型 / Models
+
+| 值 / Value | 模型 / Model | 维度 / Dims | 适用 / Use Case |
 |---|---|---|---|
 | chinese | text2vec-base-chinese | 768 | 中文（默认） |
 | multilingual | paraphrase-multilingual-MiniLM-L12-v2 | 384 | 多语言 |
 | english | all-MiniLM-L6-v2 | 384 | 英文 |
 
-## 测试
+---
 
-默认测试使用假 Embedding / 哈希回退，不会下载或加载真实模型，适合本地开发和 CI：
+## 常用命令 / Commands
 
-```bash
-pip install -r requirements-dev.txt
-```
-
-```bash
-make test
-```
-
-运行完整质量门禁（lint + test）：
-
-```bash
-make check
-```
-
-检查本地运行环境（`.env`、API Key、数据库、依赖）：
-
-```bash
-make doctor
-```
-
-如需验证真实 Embedding 模型可用性，显式开启集成测试：
-
-```bash
-make test-embedding
-```
-
-## 常用入口命令
-
-| 命令 | 说明 |
+| 命令 / Command | 说明 / Description |
 |---|---|
-| `make init-db` | 初始化 SQLite 示例数据库 |
-| `make run-app` | 启动 Streamlit Web UI |
-| `make doctor` | 检查本地环境、密钥、数据库和依赖 |
-| `make benchmark` | dry-run 基准测试，验证评估用例结构并生成报告 |
-| `make benchmark-live` | 使用真实 Agent/LLM 跑基准测试并生成报告 |
-| `make harness` | 使用脚本化 LLM 跑标准 Agent harness 场景，收集工具轨迹和 trace |
-| `make harness-live` | 使用真实 Agent/LLM 跑 harness 场景 |
-| `make rag-eval` | 离线评估 RAG 检索质量，输出 Source Hit@K、Keyword Hit Rate、MRR |
-| `make check` | 运行 lint + 默认测试 |
+| `make init-db` | 初始化数据库 / Initialize database |
+| `make run-app` | 启动 Web UI / Start Streamlit UI |
+| `make doctor` | 环境检查 / Check environment |
+| `make test` | 运行测试 / Run tests |
+| `make check` | lint + test |
+| `make benchmark` | 基准测试（dry-run）/ Benchmark (dry-run) |
+| `make benchmark-live` | 基准测试（真实 LLM）/ Benchmark (live LLM) |
+| `make rag-eval` | RAG 检索评估 / RAG retrieval evaluation |
+| `make rag-response-eval` | RAG 回答评估 / RAG response evaluation |
 
-## 学习、开发与贡献文档
+---
 
-- 个人学习路径、面试讲解、框架对比和 Demo 脚本见：`my_own_learning/README.md`
-- 贡献流程、代码规范和 PR 检查清单见：`CONTRIBUTING.md`
-- 开发者扩展手册、模块新增流程和排查指南见：`docs/development.md`
-- 标准 Agent 架构拆解见：`docs/agent_architecture.md`
+## 规划中 / Roadmap
 
-## 配置
+- [ ] Web UI 升级（React 前端）
+- [ ] 更多文档格式支持（DOCX、PPT）
+- [ ] 在线 Demo 部署
+- [ ] 多模态支持（图片理解）
 
-所有配置集中在 `config/settings.yaml`，支持环境变量覆盖（如 `AGENT_LLM_MODEL`）。
+---
 
-工具权限相关配置：
+## 参与贡献 / Contributing
 
-```yaml
-agent:
-  enforce_tool_permissions: false
-  approved_tools: []
-```
+详见 `CONTRIBUTING.md`。欢迎提 Issue 和 PR。
 
-## Agent Harness
+See `CONTRIBUTING.md` for details. Issues and PRs are welcome.
 
-Harness 是项目的标准运行外壳，用于验证 Agent 是否能在明确任务目标、成功标准和执行边界内，持续稳定、可复现地把事情做完。
+---
 
-- `src/harness/`：Harness runner、结构化模型和校验器
-- `data/harness_cases.yaml`：标准 task case，包含目标、成功标准、执行限制、期望工具轨迹和 dry-run script
-- `make harness`：默认脚本化 dry-run，不调用真实 LLM，适合 CI、教学和演示回归
-- `make harness-live`：调用真实 Agent / LLM，适合人工验收
-- 结果会记录 `run_id`、状态、最终回答、工具轨迹、artifact、trace、耗时、检查项和违规原因
+## 许可证 / License
 
-它和 benchmark 的区别是：Harness 负责“如何标准化运行、约束并验证任务过程”，Benchmark/Eval 负责“如何评分和生成质量报告”。
+[MIT](./LICENSE)
 
-## RAG Eval
+---
 
-RAG eval 用于单独评估检索阶段，不评价最终回答：
-
-- `data/rag_eval_cases.yaml`：检索评估用例，包含 query、期望来源和关键词
-- `src/eval/rag_eval.py`：离线构建 retriever，输出 Source Hit@K、Source Recall@K、Context Precision@K、Keyword Coverage、MRR
-- 检索默认使用 semantic chunk，保留标题/表结构等语义单元，并为每个 chunk 生成稳定 `chunk_id`、`chunk_hash` 和 `citation`
-- 索引 manifest 会记录 schema version、chunk 配置、embedding 模型和文档签名，避免代码或配置变化后复用旧索引
-- `rag_search` 输出包含 source、chunk_id、section、score 和 citation，便于 Agent 基于来源回答
-- `make rag-eval`：生成 `data/rag_eval_report.md`
-
-默认 `make rag-eval` 只输出指标，不作为质量门禁失败；如果要把它作为严格回归检查，可使用 `python3 -m src.eval.rag_eval --fail-on-regression`。
-
-## RAG Response Eval
-
-RAG response eval 用于评估最终回答是否基于检索上下文：
-
-- `data/rag_response_eval_cases.yaml`：包含 query、期望关键词和参考回答
-- `src/eval/rag_response_eval.py`：离线评估 citation hit、faithfulness 和 coverage
-- `make rag-response-eval`：生成 `data/rag_response_eval_report.md`
-
-这一步和检索评估分开：前者看“找没找到”，后者看“答得是不是基于找到的内容”。
+<div align="center">
+<sub>通过构建学习 Agent 核心技术：Tool Use / RAG / Skills / MCP / Memory / Multi-Agent</sub>
+<br>
+<sub>Learn Agent fundamentals by building: Tool Use / RAG / Skills / MCP / Memory / Multi-Agent</sub>
+</div>
